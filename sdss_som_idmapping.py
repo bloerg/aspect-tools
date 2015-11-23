@@ -76,6 +76,14 @@ if os.path.exists(args.inputfile):
     
     with open(args.inputfile, 'r') as input_file:
         plain_html = input_file.read()
+
+    if args.csv:
+        output_string = delimiter.join( ( "som_x", "som_y" , "mjd", "plateid", "fiberid", "link\n") )
+        if args.outputfile:
+            output_file.write(output_string)
+        else:
+            print output_string
+
     html_content = BeautifulSoup(plain_html, "lxml")
     table = html_content.find_all('table')
     tr = table[0].find_all('tr') #change this to [0] to parse first table
