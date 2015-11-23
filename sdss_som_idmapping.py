@@ -132,7 +132,7 @@ if os.path.exists(args.inputfile):
                     print json.dumps(output_object)
             
             if args.csv:
-                output_string = delimiter.join( ( str(som_x), str(som_y), str(mjd), str(plateid), str(fiberid), ''.join(('"',str(link), '"')) ) )
+                output_string = delimiter.join( ( str(som_x), str(som_y), str(mjd), str(plateid), str(fiberid), ''.join(('"',str(link), '"')), "\n" ) )
                 if args.outputfile:
                     output_file.write(output_string)
                 else:
