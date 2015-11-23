@@ -113,7 +113,7 @@ for row in tr:
             #spectra meta data
             spec_meta_data_file_path = ''.join((spec_meta_data_directory, '/', str(som_x), '-', str(som_y), '.json'))
             with open(spec_meta_data_file_path, 'w') as spec_meta_data_file:
-                json.dump({"mjd": mjd, "plateid":int(plateid), "fiberid": int(fiberid), "sdsslink": link, "som_x": int(som_x), "som_y": int(som_y)}, spec_meta_data_file)
+                json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid), "sdsslink": link, "som_x": int(som_x), "som_y": int(som_y)}, spec_meta_data_file)
             
             #write idmapping som_x, som_y -> mjd, plateid, fiberid
             idmapping_file_path = ''.join((idmapping_directory, '/', str(som_x), '-', str(som_y), '.json'))
