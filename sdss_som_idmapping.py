@@ -57,14 +57,10 @@ parser.add_argument("-d", "--delimiter", type=str, help='csv output delimiter (d
 exclusive_output_options.add_argument("-j", "--json", action="store_true",  help="output format is json")
 args = parser.parse_args()
 
-##Globals
-#default for input file
-
 if not args.delimiter:
     delimiter = ";"
 else:
     delimiter = args.delimiter
-
 
 if os.path.exists(args.inputfile):
 
@@ -97,7 +93,6 @@ if os.path.exists(args.inputfile):
             a = cell.find_all('a', href=True)
             for links in a:
                 link = links['href']
-            #~ print link
             if image_file_path == "empty.png":
                 mjd = -1
                 plateid = -1
@@ -123,7 +118,6 @@ if os.path.exists(args.inputfile):
                     plateid = -1
                     fiberid = -1                
                 
-            
             if args.json:
                 output_object = {"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid), "som_x": int(som_x), "som_y": int(som_y), "link": str(link)}
                 if args.outputfile:
