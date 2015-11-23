@@ -89,14 +89,14 @@ for row in tr:
             sdss_ids = fits_filename.split('-')
             if sdss_ids[0] == 'spec':
                 #sdss dr12 (and others?)
-                plateid = sdss_ids[1]
-                mjd = sdss_ids[2]
-                fiberid = sdss_ids[3]
+                plateid = int(sdss_ids[1])
+                mjd = int(sdss_ids[2])
+                fiberid = int(sdss_ids[3])
             elif sdss_ids[0] == 'spSpec':
                 #sdss dr7 and before
-                plateid = sdss_ids[2]
-                mjd = sdss_ids[1]
-                fiberid = sdss_ids[3]
+                plateid = int(sdss_ids[2])
+                mjd = int(sdss_ids[1])
+                fiberid = int(sdss_ids[3])
             else:
                 print "Don't know how to scrape ids from fits.png filename. Using empty values..."
                 mjd = -1
@@ -115,10 +115,13 @@ for row in tr:
             with open(spec_meta_data_file_path, 'w') as spec_meta_data_file:
                 json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid), "sdsslink": link, "som_x": int(som_x), "som_y": int(som_y)}, spec_meta_data_file)
             
-            #write idmapping som_x, som_y -> mjd, plateid, fiberid
+            #write idmapping som_x, som_y -> mjd, plateid, fiberid and vice versa
             idmapping_file_path = ''.join((idmapping_directory, '/', str(som_x), '-', str(som_y), '.json'))
             with open(idmapping_file_path, 'w') as idmapping_file:
                 json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid) }, idmapping_file)
+            idmapping_file_path = ''.join((idmapping_directory, '/', str(mjd), '-', str(plateid), '-', str(fiberid), '.json'))
+            with open(idmapping_file_path, 'w') as idmapping_file:
+                json.dump({"som_x": int(som_x), "som_y":int(som_y)}, idmapping_file)            
             
             
             #make empty.png in highest zoom level if it not exists
