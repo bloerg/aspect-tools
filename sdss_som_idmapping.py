@@ -82,7 +82,7 @@ if os.path.exists(args.inputfile):
         if args.outputfile:
             output_file.write(output_string)
         else:
-            print output_string
+            sys.stdout.write(output_string)
 
     html_content = BeautifulSoup(plain_html, "lxml")
     table = html_content.find_all('table')
