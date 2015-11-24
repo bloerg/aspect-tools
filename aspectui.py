@@ -52,6 +52,10 @@ idmapping_directory = '/'.join((output_directory, "idmapping"))
 if not os.path.exists(idmapping_directory):
     os.makedirs(idmapping_directory)
 
+#spectra meta data files
+spec_meta_data_directory = '/'.join((output_directory, "specmetadata"))
+if not os.path.exists(spec_meta_data_directory):
+    os.makedirs(spec_meta_data_directory)
 
 ##first try to read full0_0.html
 with open(input_file, 'r') as f:
@@ -85,14 +89,14 @@ for row in tr:
             sdss_ids = fits_filename.split('-')
             if sdss_ids[0] == 'spec':
                 #sdss dr12 (and others?)
-                plateid = sdss_ids[1]
-                mjd = sdss_ids[2]
-                fiberid = sdss_ids[3]
+                plateid = int(sdss_ids[1])
+                mjd = int(sdss_ids[2])
+                fiberid = int(sdss_ids[3])
             elif sdss_ids[0] == 'spSpec':
                 #sdss dr7 and before
-                plateid = sdss_ids[2]
-                mjd = sdss_ids[1]
-                fiberid = sdss_ids[3]
+                plateid = int(sdss_ids[2])
+                mjd = int(sdss_ids[1])
+                fiberid = int(sdss_ids[3])
             else:
                 print "Don't know how to scrape ids from fits.png filename. Using empty values..."
                 mjd = -1
@@ -100,15 +104,24 @@ for row in tr:
                 fiberid = -1                
             
             #write sdsslink file
+            #deprecated
             sdsslink_file_path = ''.join((sdsslinks_directory, '/', str(som_x), '-', str(som_y), '.link'))
             sdsslink_output_string = ''.join(('MPF: ', str(mjd), '-', str(plateid), '-', str(fiberid), ' <a href="', link, '" target="_blank">Explore</a>'))
             with open(sdsslink_file_path, 'w') as sdsslink_file:
                 sdsslink_file.write(sdsslink_output_string)
             
-            #write idmapping som_x, som_y -> mjd, plateid, fiberid
+            #spectra meta data
+            spec_meta_data_file_path = ''.join((spec_meta_data_directory, '/', str(som_x), '-', str(som_y), '.json'))
+            with open(spec_meta_data_file_path, 'w') as spec_meta_data_file:
+                json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid), "sdsslink": link, "som_x": int(som_x), "som_y": int(som_y)}, spec_meta_data_file)
+            
+            #write idmapping som_x, som_y -> mjd, plateid, fiberid and vice versa
             idmapping_file_path = ''.join((idmapping_directory, '/', str(som_x), '-', str(som_y), '.json'))
             with open(idmapping_file_path, 'w') as idmapping_file:
-                json.dump({"mjd": mjd, "plateid":plateid, "fiberid": fiberid}, idmapping_file)
+                json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid) }, idmapping_file)
+            idmapping_file_path = ''.join((idmapping_directory, '/', str(mjd), '-', str(plateid), '-', str(fiberid), '.json'))
+            with open(idmapping_file_path, 'w') as idmapping_file:
+                json.dump({"som_x": int(som_x), "som_y":int(som_y)}, idmapping_file)            
             
             
             #make empty.png in highest zoom level if it not exists
