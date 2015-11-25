@@ -149,7 +149,7 @@ def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
                 fig.savefig(output_filename, transparent=True)
                 plt.close()
     except IOError:
-        sys.stderr.write(''.join(('Error: could not read fits file: ', filename)))
+        sys.stderr.write(''.join(('Error: could not read fits file: ', filename, "\n")))
 
 def processDirectory (args, dirname, filenames ):
     
