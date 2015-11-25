@@ -91,7 +91,7 @@ def smp_fits_to_files ( queue ):
         for task in iter(queue.get, 'STOP'):
             fits_to_files( task[0], task[1], task[2], task[3])
     except:
-        sys.stderr.write(''.join(('Something went wrong with ', task[0])))
+        sys.stderr.write(''.join(('Something went wrong with ', task[0], "\n")))
     return True
     
 
