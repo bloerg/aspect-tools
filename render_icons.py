@@ -111,30 +111,31 @@ def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     #output_filename = ''.join([output_path, '/', str(data['mjd']), '-', str(data['plateid']), '-', str(data['fiberid']),'.png'])
-    output_filename = ''.join([output_path, '/', os.path.basename(fits_file_name), '.png'])
     
-    if icon_style == 'ugly':
-        ##with PIL
-        png_spec_file = open(output_filename, 'w')
-        temp_icon_size = (icon_size, icon_size)
-        temp_icon = Image.new('RGBA', temp_icon_size, None)            
-        draw = ImageDraw.Draw(temp_icon)
-        draw.line(zip(range(icon_size), normalize_spectrum(average_over_spectrum(spectrum.tolist(), icon_size), icon_size)), fill = 'black', width = 2)
-        del draw
-        temp_icon.save(output_filename, "PNG")
-    if icon_style == 'nice':
-        ##with pyplot
-        downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
-        plt.clf()
-        fig = plt.figure(figsize=(icon_size / 100.0, icon_size / 100.0))
-        ax = plt.subplot(111,aspect = 'auto')
-        ax.set_xlim(0, len(downsized_spectrum));
-        #ax.set_ylim(min(downsized_spectrum), max(downsized_spectrum));
-        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-        plt.axis('off')
-        plt.plot(downsized_spectrum, antialiased = True, linewidth=1.0, color='black')
-        fig.savefig(output_filename, transparent=True)
-        plt.close()
+    output_filename = ''.join([output_path, '/', os.path.basename(fits_file_name), '.png'])
+    if not os.path.exists(output_filename):
+        if icon_style == 'ugly':
+            ##with PIL
+            png_spec_file = open(output_filename, 'w')
+            temp_icon_size = (icon_size, icon_size)
+            temp_icon = Image.new('RGBA', temp_icon_size, None)            
+            draw = ImageDraw.Draw(temp_icon)
+            draw.line(zip(range(icon_size), normalize_spectrum(average_over_spectrum(spectrum.tolist(), icon_size), icon_size)), fill = 'black', width = 2)
+            del draw
+            temp_icon.save(output_filename, "PNG")
+        if icon_style == 'nice':
+            ##with pyplot
+            downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
+            plt.clf()
+            fig = plt.figure(figsize=(icon_size / 100.0, icon_size / 100.0))
+            ax = plt.subplot(111,aspect = 'auto')
+            ax.set_xlim(0, len(downsized_spectrum));
+            #ax.set_ylim(min(downsized_spectrum), max(downsized_spectrum));
+            plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+            plt.axis('off')
+            plt.plot(downsized_spectrum, antialiased = True, linewidth=1.0, color='black')
+            fig.savefig(output_filename, transparent=True)
+            plt.close()
 
 def processDirectory (args, dirname, filenames ):
     #print dirname
