@@ -155,8 +155,10 @@ def processDirectory (args, dirname, filenames ):
     
     for filename in filenames:
         if re.match('.*\.fit$', filename):
-            #fits_to_files(dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir'])
-            work_queue.put([dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir']])
+            if args['multiprocessing']:
+                work_queue.put([dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir']])
+            else:
+                fits_to_files(dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir'])
 
 
 if __name__ == '__main__':
@@ -169,6 +171,8 @@ if __name__ == '__main__':
     exclusive_output_options = parser.add_mutually_exclusive_group(required = True)
     exclusive_output_options.add_argument("-u", "--uglyicons", action="store_true", help="Use Python Image Library to plot basic and ugly graphs.")
     exclusive_output_options.add_argument("-n", "--niceicons", action="store_true",  help="Use Matplotlib to plot nicer graphs. (Default)")
+    parser.add_argument("-l", "--nomultiprocessing", action="store_true", help="Use only one process for computing instead of several")
+    parser.add_argument("-p", "--numberofprocesses", type=int, default=4, help="Number of Processes to use when multiprocessing")
     args = parser.parse_args()    
 
     if os.path.exists(args.inputdir):
@@ -178,23 +182,26 @@ if __name__ == '__main__':
             if args.niceicons:
                 icon_style='nice'
 
-
-            workers = 4
-            work_queue = mp.Queue()
-            processes = []
-            
-            for worker in range(workers):
-                p = mp.Process(target=smp_fits_to_files, args=(work_queue,))
-                p.start()
-                processes.append(p)
-
-            os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir})
-
-            for worker in range(workers):
-                work_queue.put('STOP')
+            if args.nomultiprocessing:
+                os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": False})                
+            else:
+                workers = args.numberofprocesses
+                work_queue = mp.Queue()
+                processes = []
                 
-            for process in processes:
-                process.join()
+                for worker in range(workers):
+                    p = mp.Process(target=smp_fits_to_files, args=(work_queue,))
+                    p.start()
+                    processes.append(p)
+
+                os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": True})
+
+                for worker in range(workers):
+                    work_queue.put('STOP')
+                    
+                for process in processes:
+                    process.join()
+               
         else:
             sys.exit(''.join(("Output Directory does not exist. Please create: ", args.outputdir)))
     else:
