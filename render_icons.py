@@ -48,6 +48,7 @@ from PIL import ImageDraw
 import matplotlib.pyplot as plt
 import argparse
 import sys
+import multiprocessing as mp
 
 ##used if graph plotted with PIL draw
 ##be careful: the return value is vertically flipped because PIL coordinates start at the top left
@@ -84,6 +85,15 @@ def average_over_spectrum (spectrum, new_spec_width):
                 bin_width = bin_width + bin_width_modulus
     return output_spectrum
 
+
+def smp_fits_to_files ( queue ):
+    try:
+        for task in iter(queue.get, 'STOP'):
+            fits_to_files( task[0], task[1], task[2], task[3])
+    except:
+        sys.stderr.write(''.join(('Something went wrong with ', task[0])))
+    return True
+    
 
 def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
     fits_file_name = filename
@@ -142,12 +152,11 @@ def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
         sys.stderr.write(''.join(('Error: could not read fits file: ', filename)))
 
 def processDirectory (args, dirname, filenames ):
-    #print dirname
+    
     for filename in filenames:
         if re.match('.*\.fit$', filename):
-            fits_to_files(dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir'])
-
-
+            #fits_to_files(dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir'])
+            work_queue.put([dirname + "/" + filename, args['icon_size'], args['icon_style'], args['output_dir']])
 
 
 if __name__ == '__main__':
@@ -168,7 +177,24 @@ if __name__ == '__main__':
                 icon_style='ugly'
             if args.niceicons:
                 icon_style='nice'
+
+
+            workers = 4
+            work_queue = mp.Queue()
+            processes = []
+            
+            for worker in range(workers):
+                p = mp.Process(target=smp_fits_to_files, args=(work_queue,))
+                p.start()
+                processes.append(p)
+
             os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir})
+
+            for worker in range(workers):
+                work_queue.put('STOP')
+                
+            for process in processes:
+                process.join()
         else:
             sys.exit(''.join(("Output Directory does not exist. Please create: ", args.outputdir)))
     else:
