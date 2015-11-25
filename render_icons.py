@@ -89,9 +89,12 @@ def average_over_spectrum (spectrum, new_spec_width):
 def smp_fits_to_files ( queue ):
     try:
         for task in iter(queue.get, 'STOP'):
-            fits_to_files( task[0], task[1], task[2], task[3])
-    except:
-        sys.stderr.write(''.join(('Something went wrong with ', task[0], "\n")))
+            try:
+                fits_to_files( task[0], task[1], task[2], task[3])
+            except:
+                sys.stderr.write(''.join(('Something went wrong with ', task[0], "\n")))
+    except Exception, e:
+        sys.stderr.write("Something went wrong with one of the processes.\n")))
     return True
     
 
