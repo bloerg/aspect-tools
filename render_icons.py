@@ -87,55 +87,59 @@ def average_over_spectrum (spectrum, new_spec_width):
 
 def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
     fits_file_name = filename
-    fits_file = pyfits.open(fits_file_name)
     
-    
-    ##Die Daten aus dem ersten HDU
-    data_fields = ['tai', 'ra', 'dec', 'equinox', 'az', 'alt', 'mjd', 'quality', 'radeg', 'decdeg', 'plateid', 'tileid', 'cartid', 'mapid', 'name', 'objid', 'objtype', 'raobj', 'decobj', 'fiberid', 'z', 'z_err', 'z_conf', 'z_status', 'z_warnin', 'spec_cln']
-    data = dict()
-    value_string = ""
-    for data_field in data_fields:
-        data[data_field] = fits_file[0].header[data_field]
-        #print(data_field, ': ' , data[data_field])
-    
-    ##we don't need equivalent widths for now
-    #~ ewcount=0
-    #~ for ew in fits_file[2].data['ew']:
-        #~ restWave=str(fits_file[2].data['restWave'][ewcount]).replace(".","_")
-        #~ ewcount = ewcount+1
+    try:
+        fits_file = pyfits.open(fits_file_name)
+        
+        
+        ##Die Daten aus dem ersten HDU
+        data_fields = ['tai', 'ra', 'dec', 'equinox', 'az', 'alt', 'mjd', 'quality', 'radeg', 'decdeg', 'plateid', 'tileid', 'cartid', 'mapid', 'name', 'objid', 'objtype', 'raobj', 'decobj', 'fiberid', 'z', 'z_err', 'z_conf', 'z_status', 'z_warnin', 'spec_cln']
+        data = dict()
+        value_string = ""
+        for data_field in data_fields:
+            data[data_field] = fits_file[0].header[data_field]
+            #print(data_field, ': ' , data[data_field])
+        
+        ##we don't need equivalent widths for now
+        #~ ewcount=0
+        #~ for ew in fits_file[2].data['ew']:
+            #~ restWave=str(fits_file[2].data['restWave'][ewcount]).replace(".","_")
+            #~ ewcount = ewcount+1
 
-    #read the spectrum from the fits file
-    spectrum=fits_file[0].data[0]
-    
-    output_path = ''.join([output_base_dir, '/', str(data['plateid'])])
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-    #output_filename = ''.join([output_path, '/', str(data['mjd']), '-', str(data['plateid']), '-', str(data['fiberid']),'.png'])
-    
-    output_filename = ''.join([output_path, '/', os.path.basename(fits_file_name), '.png'])
-    if not os.path.exists(output_filename):
-        if icon_style == 'ugly':
-            ##with PIL
-            png_spec_file = open(output_filename, 'w')
-            temp_icon_size = (icon_size, icon_size)
-            temp_icon = Image.new('RGBA', temp_icon_size, None)            
-            draw = ImageDraw.Draw(temp_icon)
-            draw.line(zip(range(icon_size), normalize_spectrum(average_over_spectrum(spectrum.tolist(), icon_size), icon_size)), fill = 'black', width = 2)
-            del draw
-            temp_icon.save(output_filename, "PNG")
-        if icon_style == 'nice':
-            ##with pyplot
-            downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
-            plt.clf()
-            fig = plt.figure(figsize=(icon_size / 100.0, icon_size / 100.0))
-            ax = plt.subplot(111,aspect = 'auto')
-            ax.set_xlim(0, len(downsized_spectrum));
-            #ax.set_ylim(min(downsized_spectrum), max(downsized_spectrum));
-            plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-            plt.axis('off')
-            plt.plot(downsized_spectrum, antialiased = True, linewidth=1.0, color='black')
-            fig.savefig(output_filename, transparent=True)
-            plt.close()
+        #read the spectrum from the fits file
+        spectrum=fits_file[0].data[0]
+        
+        output_path = ''.join([output_base_dir, '/', str(data['plateid'])])
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        #output_filename = ''.join([output_path, '/', str(data['mjd']), '-', str(data['plateid']), '-', str(data['fiberid']),'.png'])
+        
+        output_filename = ''.join([output_path, '/', os.path.basename(fits_file_name), '.png'])
+        if not os.path.exists(output_filename):
+            if icon_style == 'ugly':
+                ##with PIL
+                png_spec_file = open(output_filename, 'w')
+                temp_icon_size = (icon_size, icon_size)
+                temp_icon = Image.new('RGBA', temp_icon_size, None)            
+                draw = ImageDraw.Draw(temp_icon)
+                draw.line(zip(range(icon_size), normalize_spectrum(average_over_spectrum(spectrum.tolist(), icon_size), icon_size)), fill = 'black', width = 2)
+                del draw
+                temp_icon.save(output_filename, "PNG")
+            if icon_style == 'nice':
+                ##with pyplot
+                downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
+                plt.clf()
+                fig = plt.figure(figsize=(icon_size / 100.0, icon_size / 100.0))
+                ax = plt.subplot(111,aspect = 'auto')
+                ax.set_xlim(0, len(downsized_spectrum));
+                #ax.set_ylim(min(downsized_spectrum), max(downsized_spectrum));
+                plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+                plt.axis('off')
+                plt.plot(downsized_spectrum, antialiased = True, linewidth=1.0, color='black')
+                fig.savefig(output_filename, transparent=True)
+                plt.close()
+    except IOError:
+        sys.stderr.write(''.join(('Error: could not read fits file: ', filename)))
 
 def processDirectory (args, dirname, filenames ):
     #print dirname
