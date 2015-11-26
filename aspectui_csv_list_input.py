@@ -25,7 +25,6 @@ som_dimension = 0
 
 
 
-
 ##directory initialisation
 ##everything will be saved somewhere below the output directory
 output_directory = './web'
@@ -44,17 +43,15 @@ zoomed_som_directory = '/'.join((output_directory, "icons"))
 if not os.path.exists(zoomed_som_directory):
     os.makedirs(zoomed_som_directory)
 
-#sdsslink file
-sdsslinks_directory = '/'.join((output_directory, "sdsslinks"))
-if not os.path.exists(sdsslinks_directory):
-    os.makedirs(sdsslinks_directory)
-
 #mapping from som_x, som_y to mjd, plateid, fiberid 
 idmapping_directory = '/'.join((output_directory, "idmapping"))
 if not os.path.exists(idmapping_directory):
     os.makedirs(idmapping_directory)
 
-
+#spectra meta data files
+spec_meta_data_directory = '/'.join((output_directory, "specmetadata"))
+if not os.path.exists(spec_meta_data_directory):
+    os.makedirs(spec_meta_data_directory)
 
 mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=";")
 for row in mapping_data_file:
@@ -102,18 +99,19 @@ for row in mapping_data_file:
             plateid = -1
             fiberid = -1                
         
-        #write sdsslink file
-        sdsslink_file_path = ''.join((sdsslinks_directory, '/', str(som_x), '-', str(som_y), '.link'))
-        if not os.path.exists(sdsslink_file_path):
-            sdsslink_output_string = ''.join(('MPF: ', str(mjd), '-', str(plateid), '-', str(fiberid), ' <a href="', link, '" target="_blank">Explore</a>'))
-            with open(sdsslink_file_path, 'w') as sdsslink_file:
-                sdsslink_file.write(sdsslink_output_string)
         
-        #write idmapping som_x, som_y -> mjd, plateid, fiberid
+        #spectra meta data
+        spec_meta_data_file_path = ''.join((spec_meta_data_directory, '/', str(som_x), '-', str(som_y), '.json'))
+        with open(spec_meta_data_file_path, 'w') as spec_meta_data_file:
+            json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid), "sdsslink": link, "som_x": int(som_x), "som_y": int(som_y)}, spec_meta_data_file)
+        
+        #write idmapping som_x, som_y -> mjd, plateid, fiberid and vice versa
         idmapping_file_path = ''.join((idmapping_directory, '/', str(som_x), '-', str(som_y), '.json'))
-        if not os.path.exists(sdsslink_file_path):
-            with open(idmapping_file_path, 'w') as idmapping_file:
-                json.dump({"mjd": mjd, "plateid":plateid, "fiberid": fiberid}, idmapping_file)
+        with open(idmapping_file_path, 'w') as idmapping_file:
+            json.dump({"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid) }, idmapping_file)
+        idmapping_file_path = ''.join((idmapping_directory, '/', str(mjd), '-', str(plateid), '-', str(fiberid), '.json'))
+        with open(idmapping_file_path, 'w') as idmapping_file:
+            json.dump({"som_x": int(som_x), "som_y":int(som_y)}, idmapping_file)            
         
         
         #make empty.png in highest zoom level if it not exists
@@ -136,15 +134,14 @@ for row in mapping_data_file:
 
     
     #make icon of highest zoom level with transparent 2 pixel margin
-    spectrum_output_path = ''.join((original_som_directory, '/', str(som_x), '-', str(som_y), '.png'))
-    if not os.path.exists(spectrum_output_path):
-        if os.path.exists(image_file_path):
-            #copyfile(image_file_path, spectrum_output_path)
-            temp_icon_size = (icon_size[0], icon_size[1])
-            temp_icon = Image.new('RGBA', temp_icon_size, None)            
-            source_icon = Image.open(image_file_path)
-            temp_icon.paste(source_icon, (2, 2))
-            temp_icon.save(spectrum_output_path, "PNG")
+    if os.path.exists(image_file_path):
+        spectrum_output_path = ''.join((original_som_directory, '/', str(som_x), '-', str(som_y), '.png'))
+        #copyfile(image_file_path, spectrum_output_path)
+        temp_icon_size = (icon_size[0], icon_size[1])
+        temp_icon = Image.new('RGBA', temp_icon_size, None)            
+        source_icon = Image.open(image_file_path)
+        temp_icon.paste(source_icon, (2, 2))
+        temp_icon.save(spectrum_output_path, "PNG")
             
 
 
@@ -152,8 +149,8 @@ for row in mapping_data_file:
 
 ##computation of lower zoom level icons
 
-som_dimension = max([som_x, som_y, som_dimension]) ## not +1 because som_x, som_y increased after the last step of the previous loop
-print som_dimension
+som_dimension = max([som_x, som_y]) ## not +1 because som_x, som_y increased after the last step of the previous loop
+#print som_dimension
 
 max_zoom=0
 while 2**max_zoom <= som_dimension:
@@ -162,6 +159,7 @@ while 2**max_zoom <= som_dimension:
 
 
 if os.path.exists(original_som_directory):
+    
     max_zoom_directory = '/'.join((zoomed_som_directory, str(max_zoom)))
     if not os.path.exists(max_zoom_directory):
         os.rename(original_som_directory, max_zoom_directory)
