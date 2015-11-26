@@ -136,12 +136,13 @@ for row in mapping_data_file:
     #make icon of highest zoom level with transparent 2 pixel margin
     if os.path.exists(image_file_path):
         spectrum_output_path = ''.join((original_som_directory, '/', str(som_x), '-', str(som_y), '.png'))
-        #copyfile(image_file_path, spectrum_output_path)
-        temp_icon_size = (icon_size[0], icon_size[1])
-        temp_icon = Image.new('RGBA', temp_icon_size, None)            
-        source_icon = Image.open(image_file_path)
-        temp_icon.paste(source_icon, (2, 2))
-        temp_icon.save(spectrum_output_path, "PNG")
+        if not os.path.exists(spectrum_output_path):
+            #copyfile(image_file_path, spectrum_output_path)
+            temp_icon_size = (icon_size[0], icon_size[1])
+            temp_icon = Image.new('RGBA', temp_icon_size, None)            
+            source_icon = Image.open(image_file_path)
+            temp_icon.paste(source_icon, (2, 2))
+            temp_icon.save(spectrum_output_path, "PNG")
             
 
 
