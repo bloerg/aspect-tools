@@ -122,6 +122,8 @@ def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
         #read the spectrum from the fits file
         spectrum=fits_file[0].data[0]
         
+        fits_file.close()
+        
         output_path = ''.join([output_base_dir, '/', str(data['plateid'])])
         if not os.path.exists(output_path):
             os.makedirs(output_path)
