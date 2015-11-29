@@ -102,8 +102,8 @@ def get_max_zoom(som_dimension):
         return 0
     
 ##computes the number of downscaled tiles per tile at a certain zoom level
-def get_plots_per_tile_at_zoom(zoom):
-    return 2**(2 * zoom)
+def get_plots_per_tile_at_zoom(max_zoom, zoom):
+    return 2**(2 * max_zoom - zoom)
 
 
 ##used if graph plotted with PIL draw
