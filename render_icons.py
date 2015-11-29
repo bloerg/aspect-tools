@@ -80,6 +80,15 @@ def get_som_dimension_from_csv(input_file, delim):
             som_dimension = max(int(row['x']), int(row['y']), som_dimension)
     return(som_dimension + 1 ) # +1, because x, y starts at 0 while dimension starts at 1
 
+
+##compute the maximum zoom level of the final map from the maximum som_x, som_y extend
+def get_max_zoom(som_dimension):
+    max_zoom=0
+    while 2**max_zoom <= som_dimension:
+        max_zoom = max_zoom + 1
+    return(max_zoom)
+
+
 ##used if graph plotted with PIL draw
 ##be careful: the return value is vertically flipped because PIL coordinates start at the top left
 def normalize_spectrum(spectrum, new_height):
