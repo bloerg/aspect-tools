@@ -55,31 +55,39 @@ from bs4 import BeautifulSoup
 
 ##tries to read file like full0_0.html
 ##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
+##returns -1 if file does not exist
 def get_som_dimension_from_html(input_file):
-    with open(input_file, 'r') as f:
-        plain_html = f.read()
-    html_content = BeautifulSoup(plain_html)
-    table = html_content.find_all('table')
-    tr = table[0].find_all('tr')
-    som_y = 0
-    for row in tr:
-        som_x = 0
-        for cell in row.find_all('td'):
-            som_x = som_x +1
-        som_y = som_y + 1
-    return(max(som_x, som_y))
+    if os.path.exists(input_file):
+        with open(input_file, 'r') as f:
+            plain_html = f.read()
+        html_content = BeautifulSoup(plain_html)
+        table = html_content.find_all('table')
+        tr = table[0].find_all('tr')
+        som_y = 0
+        for row in tr:
+            som_x = 0
+            for cell in row.find_all('td'):
+                som_x = som_x +1
+            som_y = som_y + 1
+        return(max(som_x, som_y))
+    else:
+        sys.stderr.write(''.join(('Error: File does not exist: ', input_file)))
+        return -1
 
 
 ##tries to read mapping file containing the fields x, y, mjd, plateid, fiberid, separated by $delim
 ##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
 def get_som_dimension_from_csv(input_file, delim):
-
-    with open(input_file, "r") as csv_input:
-        mapping_data_file = csv.DictReader(csv_input, delimiter=delim)
-        som_dimension = 0
-        for row in mapping_data_file:
-            som_dimension = max(int(row['x']), int(row['y']), som_dimension)
-    return(som_dimension + 1 ) # +1, because x, y starts at 0 while dimension starts at 1
+    if os.path.exists(input_file):
+        with open(input_file, "r") as csv_input:
+            mapping_data_file = csv.DictReader(csv_input, delimiter=delim)
+            som_dimension = 0
+            for row in mapping_data_file:
+                som_dimension = max(int(row['x']), int(row['y']), som_dimension)
+        return(som_dimension + 1 ) # +1, because x, y starts at 0 while dimension starts at 1
+    else:
+        sys.stderr.write(''.join(('Error: File does not exist: ', input_file)))
+        return -1
 
 
 ##compute the maximum zoom level of the final map from the maximum som_x, som_y extend
@@ -89,6 +97,7 @@ def get_max_zoom(som_dimension):
     while 2**max_zoom <= som_dimension:
         max_zoom = max_zoom + 1
     return(max_zoom)
+
 
 
 ##used if graph plotted with PIL draw
@@ -104,6 +113,7 @@ def normalize_spectrum(spectrum, new_height):
     else:
         output_spectum = input_spectrum
     return output_spectrum
+
 
 
 def average_over_spectrum (spectrum, new_spec_width):
