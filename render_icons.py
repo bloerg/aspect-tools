@@ -52,10 +52,10 @@ import multiprocessing as mp
 from bs4 import BeautifulSoup
 
 
+
+##tries to read file like full0_0.html
+##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
 def get_som_dimension_from_html(input_file):
-    ##tries to read file like full0_0.html
-    ##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
-    
     with open(input_file, 'r') as f:
         plain_html = f.read()
     html_content = BeautifulSoup(plain_html)
@@ -70,9 +70,10 @@ def get_som_dimension_from_html(input_file):
     return(max(som_x, som_y))
 
 
+##tries to read mapping file containing the fields x, y, mjd, plateid, fiberid, separated by $delim
+##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
 def get_som_dimension_from_csv(input_file, delim):
-    ##tries to read mapping file containing the fields x, y, mjd, plateid, fiberid, separated by $delim
-    ##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
+
     with open(input_file, "r") as csv_input:
         mapping_data_file = csv.DictReader(csv_input, delimiter=delim)
         som_dimension = 0
