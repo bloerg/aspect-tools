@@ -101,7 +101,9 @@ def get_max_zoom(som_dimension):
     else:
         return 0
     
-
+##computes the number of downscaled tiles per tile at a certain zoom level
+def get_plots_per_tile_at_zoom(zoom):
+    return 2**(2 * zoom)
 
 
 ##used if graph plotted with PIL draw
@@ -139,6 +141,7 @@ def average_over_spectrum (spectrum, new_spec_width):
             if len(output_spectrum) == new_spec_width - 1:
                 bin_width = bin_width + bin_width_modulus
     return output_spectrum
+
 
 
 def smp_fits_to_files ( queue ):
