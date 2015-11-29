@@ -49,6 +49,36 @@ import matplotlib.pyplot as plt
 import argparse
 import sys
 import multiprocessing as mp
+from bs4 import BeautifulSoup
+
+
+def get_som_dimension_from_html(input_file):
+    ##tries to read file like full0_0.html
+    ##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
+    
+    with open(input_file, 'r') as f:
+        plain_html = f.read()
+    html_content = BeautifulSoup(plain_html)
+    table = html_content.find_all('table')
+    tr = table[0].find_all('tr')
+    som_y = 0
+    for row in tr:
+        som_x = 0
+        for cell in row.find_all('td'):
+            som_x = som_x +1
+        som_y = som_y + 1
+    return(max(som_x, som_y))
+
+
+def get_som_dimension_from_csv(input_file, delim):
+    ##tries to read mapping file containing the fields x, y, mjd, plateid, fiberid, separated by $delim
+    ##returns scalar: the maximum number of spec icons (empty or not) in x, and y-direction
+    with open(input_file, "r") as csv_input:
+        mapping_data_file = csv.DictReader(csv_input, delimiter=delim)
+        som_dimension = 0
+        for row in mapping_data_file:
+            som_dimension = max(int(row['x']), int(row['y']), som_dimension)
+    return(som_dimension + 1 ) # +1, because x, y starts at 0 while dimension starts at 1
 
 ##used if graph plotted with PIL draw
 ##be careful: the return value is vertically flipped because PIL coordinates start at the top left
@@ -178,6 +208,7 @@ if __name__ == '__main__':
     exclusive_output_options.add_argument("-n", "--niceicons", action="store_true",  help="Use Matplotlib to plot nicer graphs. (Default)")
     parser.add_argument("-l", "--nomultiprocessing", action="store_true", help="Use only one process for computing instead of several")
     parser.add_argument("-p", "--numberofprocesses", type=int, default=4, help="Number of Processes to use when multiprocessing")
+    parser.add_argument("-d", "--delimiter", type=str, default=';', help='Delimiter for csv mapping of mjd,plateid,fiberid to som_x, som_y (defaults to ";")')
     args = parser.parse_args()    
 
     if os.path.exists(args.inputdir):
