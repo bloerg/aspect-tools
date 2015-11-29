@@ -93,10 +93,14 @@ def get_som_dimension_from_csv(input_file, delim):
 ##compute the maximum zoom level of the final map from the maximum som_x, som_y extend
 ##returns integer for max_zoom
 def get_max_zoom(som_dimension):
-    max_zoom=0
-    while 2**max_zoom <= som_dimension:
-        max_zoom = max_zoom + 1
-    return(max_zoom)
+    if som_dimension > 0:
+        max_zoom=0
+        while 2**max_zoom <= som_dimension:
+            max_zoom = max_zoom + 1
+        return(max_zoom)
+    else:
+        return 0
+    
 
 
 
