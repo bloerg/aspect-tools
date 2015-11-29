@@ -104,6 +104,18 @@ def get_max_zoom(som_dimension):
 ##computes the number of downscaled tiles per tile at a certain zoom level
 def get_plots_per_tile_at_zoom(max_zoom, zoom):
     return 2**(2 * max_zoom - zoom)
+    
+
+##returns the tile coordinates in the coordinate_system of lower zoom level
+def get_tile_at_zoom(tile_x, tile_y, max_zoom, at_zoom):
+    number_of_tiles = 2**(max_zoom - at_zoom)
+    return(tile_x / number_of_tiles, tile_y / number_of_tiles)
+
+#paste a plot in a later output icon object
+#icons and plot from multiprocessing queues
+def add_plot_to_icon(icons, plot):
+    zoom_level = icons['zoom_level']
+
 
 
 ##used if graph plotted with PIL draw
