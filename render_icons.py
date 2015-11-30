@@ -140,18 +140,21 @@ def plot_spectrum(spectrum, icon_size, max_zoom, zoom):
     number_of_tiles = 2**(max_zoom - zoom)
     #downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
 #    plt.clf()
-    plot_size = (icon_size / number_of_tiles / 100.0, icon_size / number_of_tiles / 100.0)
     if len(spectrum) == 0:
+        print ("empty spec")
+        plot_size = (icon_size / number_of_tiles , icon_size / number_of_tiles)
         empty_icon = Image.new('RGBA', plot_size, None)
         empty_icon.save(output_icon, "PNG")
     else:
+        print ("normal spec")
+        plot_size = (icon_size / number_of_tiles / 100.0, icon_size / number_of_tiles / 100.0)
         fig = plt.figure(figsize=plot_size)
         ax = plt.subplot(111,aspect = 'auto')
         ax.set_xlim(0, len(spectrum));
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.axis('off')
         plt.plot(spectrum, antialiased = True, linewidth=1.0, color='black')
-        fig.savefig(output_icon, transparent=True)
+        fig.savefig(output_icon, transparent=True, format='png')
         plt.close()
     return output_icon
 
@@ -160,11 +163,29 @@ def plot_spectrum(spectrum, icon_size, max_zoom, zoom):
 def paste_plot_to_icon(plot, icon, position):
     at_x, at_y = position
     try:
+
+        #~ if not os.path.exists('/var/tmp/test.png'):
+            #~ my_plot = plot   
+            #~ with open('/var/tmp/test.png', 'w') as testpng:
+                #~ my_plot.seek(0)
+                #~ copyfileobj(my_plot, testpng)  
+            #~ my_plot.close()
+            #~ my_plot.seek(0)
+            #~ temp_image = Image.new('RGBA', (256, 256), None)
+            #~ temp_image.paste(Image.open(my_plot), (0,0))
+            #~ temp_image.save('/var/tmp/test.png', "PNG")
+        plot.seek(0)
         icon['icon'].paste(Image.open(plot), position)
+        #temp_plot = Image.open(plot)
+        #temp_plot.load()
+        #icon['icon'].paste(temp_plot, (0,0))
+        #~ if not os.path.exists('/var/tmp/test.png'):
+            #~ icon['icon'].save('/var/tmp/test.png', "PNG")
         icon['touched'] = icon['touched'] + 1
         plot.close()
+        del(plot)
         return True
-    except:
+    except Exception, e:
         return False
 
 #returns the relative position of a plot in pixels within a spec icon at a certain zoomlevel
@@ -172,21 +193,18 @@ def return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom):
     number_of_tiles = 2**(max_zoom - zoom)
     shift_width = icon_size / number_of_tiles
     som_x, som_y = som_coordinates
-    zoomed_x, zoomed_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
+    #zoomed_x, zoomed_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
     paste_position = ((som_x % number_of_tiles) * shift_width, (som_y % number_of_tiles) * shift_width)
     return paste_position
     
 
-def save_icon_to_file(icons, icon_to_save):
-    icon_x, icon_y = icon_to_save
-    spectrum_output_path = ''.join((icons['spec_dir'], '/', str(icon_x), '-', str(icon_y), '.png'))
+def save_icon_to_file(icon, spec_dir, zoom, icon_x, icon_y):
+    spectrum_output_path = ''.join((spec_dir, '/', str(icon_x), '-', str(icon_y), '.png'))
     try:
-        icons[icon_x][icon_y]['icon'].save(spectrum_output_path, "PNG")
-        del(icons[icon_x][icon_y])
+        icon['icon'].save(spectrum_output_path, "PNG")
+        del(icon)
     except IOError:
         sys.stderr.write(''.join(('Error: Could not write file: ', spectrum_output_path)))
-    except KeyError:
-        sys.stderr.write(''.join(('Error: Icon to be saved does not exist: ', str(icon_to_save))))
     finally:
         return True
 
@@ -196,21 +214,47 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
     icons = {'spec_dir': '/'.join((output_directory, "icons", str(zoom))), 'icon_size': icon_size, 'zoom': zoom, 'max_zoom': max_zoom}
     if not os.path.exists(icons['spec_dir']):
         os.makedirs(icons['spec_dir'])    
-    plots_per_file = get_plots_per_tile_at_zoom(max_zoom, zoom)
+    plots_per_tile = get_plots_per_tile_at_zoom(max_zoom, zoom)
     try:
         for task in iter(plot_queue.get, 'STOP'):
-            try:
-                spectrum, som_coordinates = task
-                som_x, som_y = som_coordinates
-                icon_to_paste_to = return_icon_to_paste_to(icons, get_tile_at_zoom(som_x, som_y, max_zoom, zoom))
-                paste_icon_x, paste_icon_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
-                print('zack')
-                paste_plot_to_icon(plot_spectrum(spectrum, icon_size, max_zoom, zoom), icon_to_paste_to , return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom))
-                print('bumm')
-                if icons[paste_icon_x][paste_icon_y]['touched'] >= plots_per_file:
-                    save_icon_to_file(icons, (paste_icon_x, paste_icon_y))
-            except:
-                sys.stderr.write(''.join(('Something went wrong with ', str(task[1]), "\n")))
+            if zoom > 7:
+                try:            
+                    spectrum, som_coordinates = task
+                    som_x, som_y = som_coordinates
+                    icon_to_paste_to = return_icon_to_paste_to(icons, get_tile_at_zoom(som_x, som_y, max_zoom, zoom))
+                    paste_icon_x, paste_icon_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
+                    plotted_spectrum = plot_spectrum(spectrum, icon_size, max_zoom, zoom) # this is freed in paste_plot_to_icon ()
+                    plotted_spectrum.seek(0)
+                    #~ if zoom == 10:
+                        #~ print("pasting plot of som: ", som_coordinates, "in icon", paste_icon_x, paste_icon_y, "at ", return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom), 'with speclen: ', len(spectrum))
+                    paste_plot_to_icon(plotted_spectrum, icon_to_paste_to , return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom))
+                    if icon_to_paste_to['touched'] == plots_per_tile:
+                        save_icon_to_file(icon_to_paste_to, icons['spec_dir'], zoom, paste_icon_x, paste_icon_y)
+
+                    #~ if len(spectrum) > 0:
+                        #~ my_plot = plot_spectrum(spectrum, icon_size, max_zoom, zoom)
+                        #~ with open(''.join(('/var/tmp/sdssdr7specs/icons/', str(zoom),'/',str(som_x),'-', str(som_y),'.png')),'w') as output_png:
+                            #~ my_plot.seek(0)
+                            #~ copyfileobj(my_plot, output_png)
+                        #~ my_plot.close()
+                        #~ del(my_plot)
+                            
+                            
+                    #~ my_plot = plot_spectrum(spectrum, icon_size, max_zoom, zoom)
+                    #~ im = Image.open(my_plot)
+                    #~ im.save(''.join(('/var/tmp/sdssdr7specs/icons/', str(zoom),'/',str(som_x),'-', str(som_y),'.png')))
+                    #~ my_plot.close()
+                    #~ del(my_plot)
+                    #~ with open(''.join(('/var/tmp/sdssdr7specs/icons/', str(zoom),'/',str(som_x),'-', str(som_y),'.png')),'w') as output_png:
+                        #~ my_plot = plot_spectrum(spectrum, icon_size, max_zoom, zoom)
+                        #~ my_plot.seek(0,2)
+                        #~ print("size outside",my_plot.tell())
+                        #~ #my_plot.seek(0)
+                        #~ copyfileobj(my_plot, output_png)
+                        #~ my_plot.close()
+                        #~ del(my_plot)
+                except Exception, e:
+                    sys.stderr.write(''.join(('Something went wrong with ', str(task[1]), " Exception: ", str(e), " zoom: ", str(zoom), "spec_length: ", str(len(spectrum)), "\n")))
 
     except Exception, e:
         sys.stderr.write("Something went wrong with one of the processes.\n")
@@ -233,13 +277,21 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
             csv_fiberid = int(data['fibID'])
             som_dimension = max([som_x, som_y, som_dimension])
             
+
             for x in range(som_x, csv_som_x):
-                for y in range(som_y, csv_som_y):
+                if som_y < csv_som_y:
+                    for y in range(som_y, csv_som_y):
+                        mjd = -1
+                        plateid = -1
+                        fiberid = -1
+                        for queue in queues:
+                            queue.put((empty_spectrum, (x,y)))
+                else:
                     mjd = -1
                     plateid = -1
                     fiberid = -1
                     for queue in queues:
-                        queue.put(empty_spectrum, (x,y))
+                        queue.put((empty_spectrum, (x,som_y)))
 
             som_x = csv_som_x
             som_y = csv_som_y
@@ -266,6 +318,8 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
                 spectrum = []
             for queue in queues:
                 queue.put((spectrum, (som_x, som_y)))
+            som_x = som_x + 1
+            som_y = som_y + 1
 
     except IOError:
         sys.exit(''.join(('Error: cannot read input csv file: ', input_file)))
