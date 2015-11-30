@@ -208,9 +208,60 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
         sys.stderr.write("Something went wrong with one of the processes.\n")))
     return True
 
-    
+def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
+    empty_spectrum = numpy.array([])
+    try:
+        mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=";")
+        som_x = 0
+        som_y = 0
+        for row in mapping_data_file:
+            data = dict()
+            data = row
+            csv_som_x = int(data['x'])
+            csv_som_y = int(data['y'])
+            csv_mjd = int(data['MJD'])
+            csv_plateid = int(data['plateID'])
+            csv_fiberid = int(data['fibID'])
+            som_dimension = max([som_x, som_y, som_dimension])
+            
+            for x in range(som_x, csv_som_x):
+                for y in range(som_y, csv_som_y):
+                mjd = -1
+                plateid = -1
+                fiberid = -1
+                for queue in queues:
+                    queue.put(empty_spectrum, (x,y))
 
-def fill_plot_queue(queues, input_file, plate_directory, icon_size):
+            som_x = csv_som_x
+            som_y = csv_som_y
+
+            ##for sdss dr7 specs
+            padded_plateid = ''.join(('0000', str(csv_plateid)))
+            padded_plateid = padded_plateid[-4:]
+            padded_fiberid = ''.join(('000', str(csv_fiberid)))
+            padded_fiberid = padded_fiberid[-3:]
+            fits_file_path=''.join((plate_directory, '/', str(plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
+            
+            try:
+                fits_file = pyfits.open(fits_file_path)
+                ##data from the first HDU
+                #~ data_fields = ['tai', 'ra', 'dec', 'equinox', 'az', 'alt', 'mjd', 'quality', 'radeg', 'decdeg', 'plateid', 'tileid', 'cartid', 'mapid', 'name', 'objid', 'objtype', 'raobj', 'decobj', 'fiberid', 'z', 'z_err', 'z_conf', 'z_status', 'z_warnin', 'spec_cln']
+                #~ data = dict()
+                #~ value_string = ""
+                #~ for data_field in data_fields:
+                    #~ data[data_field] = fits_file[0].header[data_field]
+                spectrum=average_over_spectrum(fits_file[0].data[0].tolist(), icon_size)
+                #spectrum=average_over_spectrum(spectrum.tolist(), icon_size)
+                fits_file.close()
+            except:
+                spectrum = numpy.array([])
+            for queue in queues:
+                queue.put((spectrum, (som_x, som_y)))
+
+    except IOError:
+        sys.exit(''.join(('Error: cannot read input csv file: ', input_file)))
+
+def fill_plot_queue_html(queues, input_file, plate_directory, icon_size):
     with open(input_file, 'r') as f:
         plain_html = f.read()
     html_content = BeautifulSoup(plain_html)
@@ -259,7 +310,7 @@ def fill_plot_queue(queues, input_file, plate_directory, icon_size):
                     padded_plateid = padded_plateid[-4:]
                     padded_fiberid = ''.join(('000', str(fiberid)))
                     padded_fiberid = padded_fiberid[-3:]
-                    fits_file_path=''.join((str(plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
+                    fits_file_path=''.join((plate_directory, '/', str(plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
                 else:
                     print "Don't know how to scrape ids from fits.png filename. Using empty values..."
                     mjd = -1
@@ -431,7 +482,8 @@ if __name__ == '__main__':
                         p.start()
                         processes.append(p)
                     
-                    fill_plot_queue(plot_queues, inputfile, inputdir, icon_size)
+                    #fill_plot_queue_html(plot_queues, inputfile, inputdir, icon_size)
+                    fill_plot_queue_csv(plot_queues, inputfile, inputdir, icon_size)
                     
                     for worker in range(workers):
                         plot_queues[worker].put('STOP')
