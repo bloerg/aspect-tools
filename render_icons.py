@@ -38,18 +38,20 @@
 
 
 
-import pyfits
-import string
-import os
-import re
-import json
-from PIL import Image
-from PIL import ImageDraw
-import matplotlib.pyplot as plt
-import argparse
-import sys
-import multiprocessing as mp
-from bs4 import BeautifulSoup
+import pyfits # for reading fits files
+import string # string manipulation
+import os # for path related operations
+import re # for filename parsing
+import json # for json
+from PIL import Image # for Image manipulation
+from PIL import ImageDraw # for spec icon stitching
+import matplotlib.pyplot as plt # for plotting the spectra
+import argparse # for input argument parsing
+import sys # for stderr, stdout
+import multiprocessing as mp # for smp
+from bs4 import BeautifulSoup # for html parsing
+from StringIO import StringIO # for the file like objects to hold the spec icons until saving on hard disk
+from shutil import copyfileobj# to copy the StringIO-Objects to real files
 
 
 
@@ -103,7 +105,7 @@ def get_max_zoom(som_dimension):
     
 ##computes the number of downscaled tiles per tile at a certain zoom level
 def get_plots_per_tile_at_zoom(max_zoom, zoom):
-    return 2**(2 * max_zoom - zoom)
+    return (2**(2 * (max_zoom - zoom)))
     
 
 ##returns the tile coordinates in the coordinate_system of lower zoom level
@@ -111,11 +113,101 @@ def get_tile_at_zoom(tile_x, tile_y, max_zoom, at_zoom):
     number_of_tiles = 2**(max_zoom - at_zoom)
     return(tile_x / number_of_tiles, tile_y / number_of_tiles)
 
-#paste a plot in a later output icon object
-#icons and plot from multiprocessing queues
-def add_plot_to_icon(icons, plot):
-    zoom_level = icons['zoom_level']
 
+
+#adds empty Icon as Image Object to Iconlist
+def return_icon_to_paste_to(icons, coordinates_at_zoom):
+    x_at_zoom, y_at_zoom = coordinates_at_zoom
+    icon_size = icons['icon_size']
+    try:
+        result = icons[x_at_zoom][y_at_zoom]
+        return result
+    except KeyError:
+        try:
+            icons[x_at_zoom][y_at_zoom] = {'touched': 0, 'icon': Image.new('RGBA', (icon_size, icon_size), None)}
+            result = icons[x_at_zoom][y_at_zoom]
+            return result
+        except KeyError:
+            icons[x_at_zoom] = {y_at_zoom: {'touched': 0, 'icon': Image.new('RGBA', (icon_size, icon_size), None)}}
+            result = icons[x_at_zoom][y_at_zoom]
+            return result
+
+#plots input spectrum, returns file like object containing png representation of plot
+def plot_spectrum(spectrum, icon_size, max_zoom, zoom):
+    output_icon = StringIO()
+    number_of_tiles = 2**(max_zoom - zoom)
+    #downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
+#    plt.clf()
+    fig = plt.figure(figsize=(icon_size / number_of_tiles / 100.0, icon_size / number_of_tiles / 100.0))
+    ax = plt.subplot(111,aspect = 'auto')
+    ax.set_xlim(0, len(spectrum));
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    plt.axis('off')
+    plt.plot(spectrum, antialiased = True, linewidth=1.0, color='black')
+    fig.savefig(output_icon, transparent=True)
+    plt.close()
+    return output_icon
+
+#pastes a spec_plot into an icon at position
+#expects a plot as png file like object, an icon as Image object and the position within the image object as tuple (x,y)
+def paste_plot_to_icon(plot, icon, position):
+    at_x, at_y = position
+    try:
+        icon['icon'].paste(Image.open(plot), position)
+        icon['touched'] = icon['touched'] + 1
+        plot.close()
+        return True
+    except:
+        return False
+
+#returns the relative position of a plot in pixels within a spec icon at a certain zoomlevel
+def return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom):
+    number_of_tiles = 2**(max_zoom - zoom)
+    shift_width = icon_size / number_of_tiles
+    som_x, som_y = som_coordinates
+    zoomed_x, zoomed_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
+    paste_position = ((som_x % number_of_tiles) * shift_width, (som_y % number_of_tiles) * shift_width)
+    return paste_position
+    
+
+def save_icon_to_file(icons, icon_to_save):
+    icon_x, icon_y = icon_to_save
+    spectrum_output_path = ''.join((icons['spec_dir'], '/', str(icon_x), '-', str(icon_y), '.png'))
+    try:
+        icons[icon_x][icon_y]['icon'].save(spectrum_output_path, "PNG")
+        del(icons[icon_x][icon_y])
+    except IOError:
+        sys.stderr.write(''.join(('Error: Could not write file: ', spectrum_output_path)))
+    except KeyError:
+        sys.stderr.write(''.join(('Error: Icon to be saved does not exist: ', str(icon_to_save))))
+    finally:
+        return True
+
+
+##worker function
+def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
+    icons = {'spec_dir': '/'.join((output_directory, "icons", str(zoom))), 'icon_size': icon_size, 'zoom': zoom, 'max_zoom': max_zoom}
+    if not os.path.exists(icons['spec_dir']):
+        os.makedirs(icons['spec_dir'])    
+    plots_per_file = get_plots_per_tile_at_zoom(max_zoom, zoom)
+    try:
+        for task in iter(plot_queue.get, 'STOP'):
+            try:
+                spectrum, som_coordinates = task
+                som_x, som_y = som_coordinates
+                icon_to_paste_to = return_icon_to_paste_to(icons, get_tile_at_zoom(som_x, som_y, max_zoom, zoom))
+                paste_icon_x, paste_icon_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
+                paste_plot_to_icon(plot_spectrum(spectrum, icon_size, max_zoom, zoom), icon_to_paste_to , return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom))
+                
+                if icons[paste_icon_x][paste_icon_y]['touched'] >= plots_per_file:
+                    save_icon_to_file(icons, (paste_icon_x, paste_icon_y))
+            except:
+                sys.stderr.write(''.join(('Something went wrong with ', str(task[1]), "\n")))
+    except Exception, e:
+        sys.stderr.write("Something went wrong with one of the processes.\n")))
+    return True
+
+    
 
 
 ##used if graph plotted with PIL draw
