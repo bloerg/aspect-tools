@@ -113,7 +113,7 @@ def get_plots_per_tile_at_zoom(max_zoom, zoom):
 ##returns the tile coordinates in the coordinate_system of lower zoom level
 def get_tile_at_zoom(tile_x, tile_y, max_zoom, at_zoom):
     number_of_tiles = 2**(max_zoom - at_zoom)
-    return(tile_x / number_of_tiles, tile_y / number_of_tiles)
+    return(tile_x / number_of_tiles + tile_x % number_of_tiles, tile_y / number_of_tiles + tile_x % number_of_tiles)
 
 
 
@@ -485,6 +485,7 @@ def fits_to_files ( filename, icon_size, icon_style, output_base_dir):
                 ##with pyplot
                 downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
                 plt.clf()
+                plt.ioff()
                 fig = plt.figure(figsize=(icon_size / 100.0, icon_size / 100.0))
                 ax = plt.subplot(111,aspect = 'auto')
                 ax.set_xlim(0, len(downsized_spectrum));
