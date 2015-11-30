@@ -39,6 +39,7 @@
 
 
 import pyfits # for reading fits files
+import numpy # for numbers and such
 import string # string manipulation
 import os # for path related operations
 import re # for filename parsing
@@ -209,20 +210,84 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
 
     
 
+def fill_plot_queue(queues, input_file, plate_directory, icon_size):
+    with open(input_file, 'r') as f:
+        plain_html = f.read()
+    html_content = BeautifulSoup(plain_html)
+    table = html_content.find_all('table')
+    tr = table[0].find_all('tr') #change this to [0] to parse first table
 
-##used if graph plotted with PIL draw
-##be careful: the return value is vertically flipped because PIL coordinates start at the top left
-def normalize_spectrum(spectrum, new_height):
-    max_spectrum = max(spectrum)
-    min_spectrum = min(spectrum)
-    input_spec_height = max_spectrum - min_spectrum
-    if input_spec_height > 0:
-        output_spectrum = []
-        for element in spectrum:
-            output_spectrum.append(new_height - int((element - min_spectrum) * new_height / input_spec_height))
-    else:
-        output_spectum = input_spectrum
-    return output_spectrum
+    som_y = 0
+    for row in tr:
+        som_x = 0
+        for cell in row.find_all('td'):
+            link=""
+            src=""
+            image_file=""
+            img = cell.find_all('img', src=True)
+            for src in img:
+                image_file_path = src['src']
+            a = cell.find_all('a', href=True)
+            for links in a:
+                link = links['href']
+            #~ print link
+            if image_file_path == "empty.png":
+                mjd = -1
+                plateid = -1
+                fiberid = -1
+            else:
+                #extract mjd,plateid,fiberid from fits.png-Filename
+                fits_filename = os.path.basename(image_file_path)
+                fits_filename = str.replace(fits_filename, '.', '-')
+                sdss_ids = fits_filename.split('-')
+                if sdss_ids[0] == 'spec':
+                    #sdss dr12 (and others?)
+                    plateid = int(sdss_ids[1])
+                    mjd = int(sdss_ids[2])
+                    fiberid = int(sdss_ids[3])
+                    padded_plateid = ''.join(('0000', str(plateid)))
+                    padded_plateid = padded_plateid[-4:]
+                    padded_fiberid = ''.join(('0000', str(fiberid)))
+                    padded_fiberid = padded_fiberid[-4:]
+                    fits_file_path=''.join((str(padded_plateid), '/spec-', padded_plateid, '-', str(mjd), '-',padded_fiberid, '.fits'))
+                elif sdss_ids[0] == 'spSpec':
+                    #sdss dr7 and before
+                    plateid = int(sdss_ids[2])
+                    mjd = int(sdss_ids[1])
+                    fiberid = int(sdss_ids[3])
+                    padded_plateid = ''.join(('0000', str(plateid)))
+                    padded_plateid = padded_plateid[-4:]
+                    padded_fiberid = ''.join(('000', str(fiberid)))
+                    padded_fiberid = padded_fiberid[-3:]
+                    fits_file_path=''.join((str(plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
+                else:
+                    print "Don't know how to scrape ids from fits.png filename. Using empty values..."
+                    mjd = -1
+                    plateid = -1
+                    fiberid = -1
+                
+                if mjd == -1:
+                    spectrum = numpy.array([])
+                else:
+                    try:
+                        fits_file = pyfits.open(fits_file_path)
+                        ##data from the first HDU
+                        #~ data_fields = ['tai', 'ra', 'dec', 'equinox', 'az', 'alt', 'mjd', 'quality', 'radeg', 'decdeg', 'plateid', 'tileid', 'cartid', 'mapid', 'name', 'objid', 'objtype', 'raobj', 'decobj', 'fiberid', 'z', 'z_err', 'z_conf', 'z_status', 'z_warnin', 'spec_cln']
+                        #~ data = dict()
+                        #~ value_string = ""
+                        #~ for data_field in data_fields:
+                            #~ data[data_field] = fits_file[0].header[data_field]
+                        spectrum=average_over_spectrum(fits_file[0].data[0].tolist(), icon_size)
+                        #spectrum=average_over_spectrum(spectrum.tolist(), icon_size)
+                        fits_file.close()
+                    except:
+                        spectrum = numpy.array([])
+            for queue in queues:
+                queue.put((spectrum, (som_x, som_y)))
+
+            som_x = som_x +1
+        som_y = som_y + 1
+                    
 
 
 
@@ -332,7 +397,8 @@ if __name__ == '__main__':
 
     #input parameter parsing
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--inputdir", type=str, required=True, help="Directory containing fits files with spectra. Can have sub directories.")
+    parser.add_argument("-i", "--inputdir", type=str, required=True, help="Directory containing directories named after plates, containing fit(s) files.")
+    parser.add_argument("-I", "--inputfile", type=str, required=True, help="input file like full0_0.html generated by ASPECT")
     parser.add_argument("-o", "--outputdir", type=str, required=True, help="Output directory for plotted spectra icons.")
     parser.add_argument("-s", "--iconsize", type=int, default=256, help="Dimension of the spec icons in Pixels. Default: 256")
     exclusive_output_options = parser.add_mutually_exclusive_group(required = True)
@@ -345,30 +411,52 @@ if __name__ == '__main__':
 
     if os.path.exists(args.inputdir):
         if os.path.exists(args.outputdir):
-            if args.uglyicons:
-                icon_style='ugly'
+            #~ if args.uglyicons:
+                #~ icon_style='ugly'
             if args.niceicons:
                 icon_style='nice'
 
             if args.nomultiprocessing:
-                os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": False})                
+                #~ os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": False})                
+                sys.exit('single processing not implementet')
             else:
-                workers = args.numberofprocesses
-                work_queue = mp.Queue()
-                processes = []
-                
-                for worker in range(workers):
-                    p = mp.Process(target=smp_fits_to_files, args=(work_queue,))
-                    p.start()
-                    processes.append(p)
-
-                os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": True})
-
-                for worker in range(workers):
-                    work_queue.put('STOP')
+                if os.path.exists(inputfile):
+                    max_zoom = get_max_zoom(get_som_dimension_from_html(inputfile))
+                    workers = max_zoom + 1
+                    plot_queues = []
+                    processes = []
+                    for worker in range(workers):
+                        plot_queues.append(mp.Queue())
+                        p = mp.Process(target=smp_fits_to_files, args=(plot_queues[worker], max_zoom, worker, iconsize, outputdirectory))
+                        p.start()
+                        processes.append(p)
                     
-                for process in processes:
-                    process.join()
+                    fill_plot_queue(plot_queues, inputfile, inputdir, icon_size)
+                    
+                    for worker in range(workers):
+                        plot_queues[worker].put('STOP')
+                    for process in processes:
+                        process.join()
+                        
+                else:
+                    sys.exit(''.join(('Error: Input file does not exist:', inputfile)))
+                
+                #~ workers = args.numberofprocesses
+                #~ work_queue = mp.Queue()
+                #~ processes = []
+                
+                #~ for worker in range(workers):
+                    #~ p = mp.Process(target=smp_fits_to_files, args=(work_queue,))
+                    #~ p.start()
+                    #~ processes.append(p)
+
+                #~ os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": True})
+
+                #~ for worker in range(workers):
+                    #~ work_queue.put('STOP')
+                    
+                #~ for process in processes:
+                    #~ process.join()
                
         else:
             sys.exit(''.join(("Output Directory does not exist. Please create: ", args.outputdir)))
