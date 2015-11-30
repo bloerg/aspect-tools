@@ -113,7 +113,7 @@ def get_plots_per_tile_at_zoom(max_zoom, zoom):
 ##returns the tile coordinates in the coordinate_system of lower zoom level
 def get_tile_at_zoom(tile_x, tile_y, max_zoom, at_zoom):
     number_of_tiles = 2**(max_zoom - at_zoom)
-    return(tile_x / number_of_tiles + tile_x % number_of_tiles, tile_y / number_of_tiles + tile_x % number_of_tiles)
+    return(tile_x / number_of_tiles, tile_y / number_of_tiles)
 
 
 
@@ -141,12 +141,10 @@ def plot_spectrum(spectrum, icon_size, max_zoom, zoom):
     #downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
 #    plt.clf()
     if len(spectrum) == 0:
-        print ("empty spec")
         plot_size = (icon_size / number_of_tiles , icon_size / number_of_tiles)
         empty_icon = Image.new('RGBA', plot_size, None)
         empty_icon.save(output_icon, "PNG")
     else:
-        print ("normal spec")
         plot_size = (icon_size / number_of_tiles / 100.0, icon_size / number_of_tiles / 100.0)
         fig = plt.figure(figsize=plot_size)
         ax = plt.subplot(111,aspect = 'auto')
@@ -225,11 +223,12 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
                     paste_icon_x, paste_icon_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
                     plotted_spectrum = plot_spectrum(spectrum, icon_size, max_zoom, zoom) # this is freed in paste_plot_to_icon ()
                     plotted_spectrum.seek(0)
-                    #~ if zoom == 10:
-                        #~ print("pasting plot of som: ", som_coordinates, "in icon", paste_icon_x, paste_icon_y, "at ", return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom), 'with speclen: ', len(spectrum))
+                    if zoom == 10:
+                        print("pasting plot of som: ", som_coordinates, "in icon", paste_icon_x, paste_icon_y, "at ", return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom), 'with speclen: ', len(spectrum))
                     paste_plot_to_icon(plotted_spectrum, icon_to_paste_to , return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom))
                     if icon_to_paste_to['touched'] == plots_per_tile:
                         save_icon_to_file(icon_to_paste_to, icons['spec_dir'], zoom, paste_icon_x, paste_icon_y)
+                        print (''.join(('Info: Have written (zoom, x, y) : ', str(zoom), ', ', str(paste_icon_x), ',', str(paste_icon_y))))
 
                     #~ if len(spectrum) > 0:
                         #~ my_plot = plot_spectrum(spectrum, icon_size, max_zoom, zoom)
@@ -260,13 +259,12 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
         sys.stderr.write("Something went wrong with one of the processes.\n")
     return True
 
-def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
+def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size, som_dimension):
     empty_spectrum = []
     try:
         mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=";")
         som_x = 0
         som_y = 0
-        som_dimension = 0
         for row in mapping_data_file:
             data = dict()
             data = row
@@ -275,26 +273,29 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
             csv_mjd = int(data['MJD'])
             csv_plateid = int(data['plateID'])
             csv_fiberid = int(data['fibID'])
-            som_dimension = max([som_x, som_y, som_dimension])
             
-
-            for x in range(som_x, csv_som_x):
-                if som_y < csv_som_y:
-                    for y in range(som_y, csv_som_y):
+            if csv_som_x > som_x:
+                for x in range(som_x, csv_som_x):
+                    if csv_som_y > som_y:
+                        for y in range(som_y, csv_som_y):
+                            mjd = -1
+                            plateid = -1
+                            fiberid = -1
+                            for queue in queues:
+                                queue.put((empty_spectrum, (x,y)))
+                            som_y = som_y +1
+                    else:
                         mjd = -1
                         plateid = -1
                         fiberid = -1
                         for queue in queues:
-                            queue.put((empty_spectrum, (x,y)))
-                else:
-                    mjd = -1
-                    plateid = -1
-                    fiberid = -1
-                    for queue in queues:
-                        queue.put((empty_spectrum, (x,som_y)))
-
-            som_x = csv_som_x
-            som_y = csv_som_y
+                            queue.put((empty_spectrum, (x,som_y)))
+                    som_x = som_x + 1
+                    if som_x == som_dimension:
+                        som_x = 0
+                        som_y = som_y +1
+                        
+            
 
             ##for sdss dr7 specs
             padded_plateid = ''.join(('0000', str(csv_plateid)))
@@ -319,7 +320,10 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
             for queue in queues:
                 queue.put((spectrum, (som_x, som_y)))
             som_x = som_x + 1
-            som_y = som_y + 1
+            if som_x == som_dimension:
+                som_x = 0
+                som_y = som_y +1            
+
 
     except IOError:
         sys.exit(''.join(('Error: cannot read input csv file: ', input_file)))
@@ -536,8 +540,9 @@ if __name__ == '__main__':
                 sys.exit('single processing not implementet')
             else:
                 if os.path.exists(args.inputfile):
-                    #max_zoom = get_max_zoom(get_som_dimension_from_html(args.inputfile))
-                    max_zoom = get_max_zoom(get_som_dimension_from_csv(args.inputfile, ';'))
+                    som_dimension = get_som_dimension_from_csv(args.inputfile, ';')
+                    #get_som_dimension_from_html(args.inputfile)
+                    max_zoom = get_max_zoom(som_dimension)
                     workers = max_zoom + 1
                     plot_queues = []
                     processes = []
@@ -548,7 +553,7 @@ if __name__ == '__main__':
                         processes.append(p)
                     
                     #fill_plot_queue_html(plot_queues, args.inputfile, args.inputdir, args.iconsize)
-                    fill_plot_queue_csv(plot_queues, args.inputfile, args.inputdir, args.iconsize)
+                    fill_plot_queue_csv(plot_queues, args.inputfile, args.inputdir, args.iconsize, som_dimension)
                     
                     for worker in range(workers):
                         plot_queues[worker].put('STOP')
