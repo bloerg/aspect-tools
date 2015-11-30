@@ -53,6 +53,7 @@ import multiprocessing as mp # for smp
 from bs4 import BeautifulSoup # for html parsing
 from StringIO import StringIO # for the file like objects to hold the spec icons until saving on hard disk
 from shutil import copyfileobj# to copy the StringIO-Objects to real files
+import csv # for csv input/output
 
 
 
@@ -139,14 +140,19 @@ def plot_spectrum(spectrum, icon_size, max_zoom, zoom):
     number_of_tiles = 2**(max_zoom - zoom)
     #downsized_spectrum = average_over_spectrum(spectrum.tolist(), icon_size)
 #    plt.clf()
-    fig = plt.figure(figsize=(icon_size / number_of_tiles / 100.0, icon_size / number_of_tiles / 100.0))
-    ax = plt.subplot(111,aspect = 'auto')
-    ax.set_xlim(0, len(spectrum));
-    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-    plt.axis('off')
-    plt.plot(spectrum, antialiased = True, linewidth=1.0, color='black')
-    fig.savefig(output_icon, transparent=True)
-    plt.close()
+    plot_size = (icon_size / number_of_tiles / 100.0, icon_size / number_of_tiles / 100.0)
+    if len(spectrum) == 0:
+        empty_icon = Image.new('RGBA', plot_size, None)
+        empty_icon.save(output_icon, "PNG")
+    else:
+        fig = plt.figure(figsize=plot_size)
+        ax = plt.subplot(111,aspect = 'auto')
+        ax.set_xlim(0, len(spectrum));
+        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        plt.axis('off')
+        plt.plot(spectrum, antialiased = True, linewidth=1.0, color='black')
+        fig.savefig(output_icon, transparent=True)
+        plt.close()
     return output_icon
 
 #pastes a spec_plot into an icon at position
@@ -198,22 +204,25 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
                 som_x, som_y = som_coordinates
                 icon_to_paste_to = return_icon_to_paste_to(icons, get_tile_at_zoom(som_x, som_y, max_zoom, zoom))
                 paste_icon_x, paste_icon_y = get_tile_at_zoom(som_x, som_y, max_zoom, zoom)
+                print('zack')
                 paste_plot_to_icon(plot_spectrum(spectrum, icon_size, max_zoom, zoom), icon_to_paste_to , return_paste_position_in_icon(som_coordinates, icon_size, max_zoom, zoom))
-                
+                print('bumm')
                 if icons[paste_icon_x][paste_icon_y]['touched'] >= plots_per_file:
                     save_icon_to_file(icons, (paste_icon_x, paste_icon_y))
             except:
                 sys.stderr.write(''.join(('Something went wrong with ', str(task[1]), "\n")))
+
     except Exception, e:
-        sys.stderr.write("Something went wrong with one of the processes.\n")))
+        sys.stderr.write("Something went wrong with one of the processes.\n")
     return True
 
 def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
-    empty_spectrum = numpy.array([])
+    empty_spectrum = []
     try:
         mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=";")
         som_x = 0
         som_y = 0
+        som_dimension = 0
         for row in mapping_data_file:
             data = dict()
             data = row
@@ -226,11 +235,11 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
             
             for x in range(som_x, csv_som_x):
                 for y in range(som_y, csv_som_y):
-                mjd = -1
-                plateid = -1
-                fiberid = -1
-                for queue in queues:
-                    queue.put(empty_spectrum, (x,y))
+                    mjd = -1
+                    plateid = -1
+                    fiberid = -1
+                    for queue in queues:
+                        queue.put(empty_spectrum, (x,y))
 
             som_x = csv_som_x
             som_y = csv_som_y
@@ -240,7 +249,7 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
             padded_plateid = padded_plateid[-4:]
             padded_fiberid = ''.join(('000', str(csv_fiberid)))
             padded_fiberid = padded_fiberid[-3:]
-            fits_file_path=''.join((plate_directory, '/', str(plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
+            fits_file_path=''.join((plate_directory, '/', str(csv_plateid), '/spSpec-', str(csv_mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
             
             try:
                 fits_file = pyfits.open(fits_file_path)
@@ -254,7 +263,7 @@ def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size):
                 #spectrum=average_over_spectrum(spectrum.tolist(), icon_size)
                 fits_file.close()
             except:
-                spectrum = numpy.array([])
+                spectrum = []
             for queue in queues:
                 queue.put((spectrum, (som_x, som_y)))
 
@@ -372,7 +381,7 @@ def smp_fits_to_files ( queue ):
             except:
                 sys.stderr.write(''.join(('Something went wrong with ', task[0], "\n")))
     except Exception, e:
-        sys.stderr.write("Something went wrong with one of the processes.\n")))
+        sys.stderr.write("Something went wrong with one of the processes.\n")
     return True
     
 
@@ -471,19 +480,20 @@ if __name__ == '__main__':
                 #~ os.path.walk( args.inputdir, processDirectory, {"icon_size": args.iconsize, "icon_style": icon_style, "output_dir": args.outputdir, "multiprocessing": False})                
                 sys.exit('single processing not implementet')
             else:
-                if os.path.exists(inputfile):
-                    max_zoom = get_max_zoom(get_som_dimension_from_html(inputfile))
+                if os.path.exists(args.inputfile):
+                    #max_zoom = get_max_zoom(get_som_dimension_from_html(args.inputfile))
+                    max_zoom = get_max_zoom(get_som_dimension_from_csv(args.inputfile, ';'))
                     workers = max_zoom + 1
                     plot_queues = []
                     processes = []
                     for worker in range(workers):
                         plot_queues.append(mp.Queue())
-                        p = mp.Process(target=smp_fits_to_files, args=(plot_queues[worker], max_zoom, worker, iconsize, outputdirectory))
+                        p = mp.Process(target=spec_worker, args=(plot_queues[worker], max_zoom, worker, args.iconsize, args.outputdir))
                         p.start()
                         processes.append(p)
                     
-                    #fill_plot_queue_html(plot_queues, inputfile, inputdir, icon_size)
-                    fill_plot_queue_csv(plot_queues, inputfile, inputdir, icon_size)
+                    #fill_plot_queue_html(plot_queues, args.inputfile, args.inputdir, args.iconsize)
+                    fill_plot_queue_csv(plot_queues, args.inputfile, args.inputdir, args.iconsize)
                     
                     for worker in range(workers):
                         plot_queues[worker].put('STOP')
