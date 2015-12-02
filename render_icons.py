@@ -94,6 +94,29 @@ def get_som_dimension_from_csv(input_file, delim):
         return -1
 
 
+##saves the mapping of mjd,plateid,fiberid -> x,y from csv-File to a dictionary
+def make_id_mapping_from_csv(input_file, delim, id_mapping_dict):
+    try:
+        mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=delim)
+        som_x = 0
+        som_y = 0
+        for row in mapping_data_file:
+            data = dict()
+            data = row
+            csv_som_x = int(data['x'])
+            csv_som_y = int(data['y'])
+            csv_mjd = int(data['MJD'])
+            csv_plateid = int(data['plateID'])
+            csv_fiberid = int(data['fibID'])
+            id_mapping_dict[(csv_som_x,csv_som_y)] = (csv_mjd, csv_plateid, csv_fiberid)
+
+    except IOError:
+        sys.exit(''.join(('Error: cannot read input csv file: ', input_file)))
+
+
+
+
+
 ##compute the maximum zoom level of the final map from the maximum som_x, som_y extend
 ##returns integer for max_zoom
 def get_max_zoom(som_dimension):
@@ -258,6 +281,126 @@ def spec_worker(plot_queue, max_zoom, zoom, icon_size, output_directory):
     except Exception, e:
         sys.stderr.write("Something went wrong with one of the processes.\n")
     return True
+
+
+def load_spectrum_from_fits(som_x, som_y,base_path, id_mapping_dict):
+    mjd, plateid, fiberid = id_mapping_dict[(som_x, som_y)]
+    ##for sdss dr7 specs
+    padded_plateid = ''.join(('0000', str(csv_plateid)))
+    padded_plateid = padded_plateid[-4:]
+    padded_fiberid = ''.join(('000', str(csv_fiberid)))
+    padded_fiberid = padded_fiberid[-3:]
+    fits_file_path=''.join((plate_directory, '/', str(csv_plateid), '/spSpec-', str(csv_mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
+    if os.path.exists(fits_file_path):
+        try:
+            fits_file = pyfits.open(fits_file_path)
+            result=fits_file[0].data[0].tolist()
+            fits_file.close()
+        except:
+            result=[]
+    return result
+
+def return_downsized_spectrum(som_x, som_y, icon_size, inputdir, outputdir, id_mapping_dict):
+    result = []
+    if id_mapping_dict[(som_x, som_y)]:
+        temp_spec_directory='/'.join((outputdir, 'temp_specs'))
+        if not os.path.exists(temp_spec_directory):
+            os.makedirs(temp_spec_directory)
+        temp_spec_path = ''.join((temp_spec_directory, '/', str(som_x), '-', str(som_y), '.json'))
+        result=[]
+        if os.path.exists(spec_path):
+            with open(temp_spec_path, 'r') as f:
+                result = json.load(f)
+        else:
+            result = average_over_spectrum(load_spectrum_from_fits(som_x, som_y, base_path, id_mapping_dict), icon_size)
+            with open(temp_spec_path, 'w') as f:
+                json.dumps(result, f)
+    return result
+
+
+
+#returns an array of unzoomed (som_x,som_y)-Tuples from zoomed x,y
+def return_subtiles_at_zoom(zoomed_x, zoomed_y, zoom, max_zoom):
+    number_of_tiles = 2**(max_zoom - zoom)
+    som_x_left = number_of_tiles * zoomed_x
+    som_y_top = number_of_tiles * zoomed_y
+    result = []
+    for x in range(som_x_left, som_x_left + number_of_tiles):
+        for y in range(som_y_top, som_y_top + number_of_tiles):
+            result.append((x,y))
+    return result
+    
+
+def fill_plot_queue_csv2(queues, input_file, plate_directory, icon_size, som_dimension):
+    empty_spectrum = []
+    try:
+        mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=";")
+        som_x = 0
+        som_y = 0
+        for row in mapping_data_file:
+            data = dict()
+            data = row
+            csv_som_x = int(data['x'])
+            csv_som_y = int(data['y'])
+            csv_mjd = int(data['MJD'])
+            csv_plateid = int(data['plateID'])
+            csv_fiberid = int(data['fibID'])
+            
+            if csv_som_x > som_x:
+                for x in range(som_x, csv_som_x):
+                    if csv_som_y > som_y:
+                        for y in range(som_y, csv_som_y):
+                            mjd = -1
+                            plateid = -1
+                            fiberid = -1
+                            for queue in queues:
+                                queue.put((empty_spectrum, (x,y)))
+                            som_y = som_y +1
+                    else:
+                        mjd = -1
+                        plateid = -1
+                        fiberid = -1
+                        for queue in queues:
+                            queue.put((empty_spectrum, (x,som_y)))
+                    som_x = som_x + 1
+                    if som_x == som_dimension:
+                        som_x = 0
+                        som_y = som_y +1
+                        
+            
+
+            ##for sdss dr7 specs
+            padded_plateid = ''.join(('0000', str(csv_plateid)))
+            padded_plateid = padded_plateid[-4:]
+            padded_fiberid = ''.join(('000', str(csv_fiberid)))
+            padded_fiberid = padded_fiberid[-3:]
+            fits_file_path=''.join((plate_directory, '/', str(csv_plateid), '/spSpec-', str(csv_mjd), '-', padded_plateid,'-',padded_fiberid, '.fit'))
+            
+            try:
+                fits_file = pyfits.open(fits_file_path)
+                ##data from the first HDU
+                #~ data_fields = ['tai', 'ra', 'dec', 'equinox', 'az', 'alt', 'mjd', 'quality', 'radeg', 'decdeg', 'plateid', 'tileid', 'cartid', 'mapid', 'name', 'objid', 'objtype', 'raobj', 'decobj', 'fiberid', 'z', 'z_err', 'z_conf', 'z_status', 'z_warnin', 'spec_cln']
+                #~ data = dict()
+                #~ value_string = ""
+                #~ for data_field in data_fields:
+                    #~ data[data_field] = fits_file[0].header[data_field]
+                spectrum=average_over_spectrum(fits_file[0].data[0].tolist(), icon_size)
+                #spectrum=average_over_spectrum(spectrum.tolist(), icon_size)
+                fits_file.close()
+            except:
+                spectrum = []
+            for queue in queues:
+                queue.put((spectrum, (som_x, som_y)))
+            som_x = som_x + 1
+            if som_x == som_dimension:
+                som_x = 0
+                som_y = som_y +1            
+
+
+    except IOError:
+        sys.exit(''.join(('Error: cannot read input csv file: ', input_file)))
+
+    
 
 def fill_plot_queue_csv(queues, input_file, plate_directory, icon_size, som_dimension):
     empty_spectrum = []
@@ -541,6 +684,10 @@ if __name__ == '__main__':
             else:
                 if os.path.exists(args.inputfile):
                     som_dimension = get_som_dimension_from_csv(args.inputfile, ';')
+                    
+                    id_mapping_dict = {}
+                    make_id_mapping_from_csv(args.inputfile, ';', id_mapping_dict)
+                    
                     #get_som_dimension_from_html(args.inputfile)
                     max_zoom = get_max_zoom(som_dimension)
                     workers = max_zoom + 1
@@ -553,7 +700,7 @@ if __name__ == '__main__':
                         processes.append(p)
                     
                     #fill_plot_queue_html(plot_queues, args.inputfile, args.inputdir, args.iconsize)
-                    fill_plot_queue_csv(plot_queues, args.inputfile, args.inputdir, args.iconsize, som_dimension)
+###                    fill_plot_queue_csv(plot_queues, args.inputfile, args.inputdir, args.iconsize, som_dimension)
                     
                     for worker in range(workers):
                         plot_queues[worker].put('STOP')
