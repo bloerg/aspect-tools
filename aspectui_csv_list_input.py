@@ -153,7 +153,7 @@ for row in mapping_data_file:
 
 ##computation of lower zoom level icons
 
-som_dimension = max([som_x, som_y]) ## not +1 because som_x, som_y increased after the last step of the previous loop
+som_dimension = max([som_x+1, som_y+1]) 
 #print som_dimension
 
 max_zoom=0
