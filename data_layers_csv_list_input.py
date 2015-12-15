@@ -102,7 +102,7 @@ for row in mapping_data_file:
             with open(data_file_path, 'r') as json_input_file:
                 with open(data_output_path, 'w') as json_output_file:
                     json_data = json.load(json_input_file)
-                    json.dump([{"x":som_x,"y":som_y,"val":json_data[0]}], json_output_file)
+                    json.dump({"data": [{"x":som_x,"y":som_y,"val":json_data[0]}]}, json_output_file)
                     try:
                         data_min = min(data_min, json_data[0])
                     except:
@@ -150,10 +150,10 @@ if os.path.exists(original_som_directory):
                             #print(source_icon_path)
                             if os.path.exists(source_data_path):
                                 with open(source_data_path) as higher_zoom_json:
-                                    lower_zoom_data = lower_zoom_data + json.load(higher_zoom_json)
+                                    lower_zoom_data = lower_zoom_data + json.load(higher_zoom_json)['data']
                     
                     with open(output_json_path, 'w') as output_json_file:
-                        json.dump(lower_zoom_data, output_json_file)
+                        json.dump({"data":lower_zoom_data}, output_json_file)
     
     ##Config file for the data layer
     config = {}
