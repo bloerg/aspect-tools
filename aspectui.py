@@ -204,6 +204,7 @@ if os.path.exists(original_som_directory):
     config['max_y'] = som_dimension
     config['base_directory'] = "./som"
     #config['page_title'] = ''
+    config['has_no_background'] = True
     config_file_path = '/'.join((output_directory, "../config.json"))
     with open(config_file_path, 'w') as config_file:
         json.dump(config, config_file)
