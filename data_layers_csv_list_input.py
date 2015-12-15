@@ -21,7 +21,7 @@ import csv
 import shutil
 
 ##Globals
-input_file = '/var/tmp//zuordnung.csv'
+input_file = '/var/tmp/zuordnung.csv'
 som_dimension = 0
 data_layer = 'z'
 
@@ -34,11 +34,7 @@ if not os.path.exists(output_directory):
 output_directory = './web/som'
 if not os.path.exists(output_directory):
     os.makedirs(output_directory)
-##original_som_directory will contain the unzoomed mapped (mjd, plateid, fiberid to som_x, som_y) spectra icons
-##will be renamed to the largest zoom level in the process of computation of the lower zoom level spec icons
-original_som_directory = '/'.join((output_directory, "originalsomdirectory"))
-if not os.path.exists(original_som_directory):
-    os.makedirs(original_som_directory)
+
 ##zoomed_som_directory will contain the the combinations of spectra icons for lower zoom levels
 zoomed_som_directory = '/'.join((output_directory, "datalayers"))
 if not os.path.exists(zoomed_som_directory):
@@ -46,7 +42,13 @@ if not os.path.exists(zoomed_som_directory):
 zoomed_som_directory = '/'.join((zoomed_som_directory, data_layer))
 if not os.path.exists(zoomed_som_directory):
     os.makedirs(zoomed_som_directory)
-
+    
+##original_som_directory will contain the unzoomed mapped (mjd, plateid, fiberid to som_x, som_y) spectra icons
+##will be renamed to the largest zoom level in the process of computation of the lower zoom level spec icons
+original_som_directory = '/'.join((output_directory, "datalayers", data_layer, "originalsomdirectory"))
+if not os.path.exists(original_som_directory):
+    os.makedirs(original_som_directory)
+    
 mapping_data_file = csv.DictReader(open(input_file, "rb"), delimiter=";")
 for row in mapping_data_file:
     data = dict()
@@ -140,17 +142,18 @@ if os.path.exists(original_som_directory):
         for som_y in range(2**zoom):
             for som_x in range(2**zoom):
                 lower_zoom_data = []
-
-                for y_offset in range(2):
-                    for x_offset in range(2):
-                        source_data_path = ''.join((zoomed_som_directory, '/', str(zoom + 1), '/', str(som_x * 2 + x_offset), '-', str(som_y * 2 + y_offset), '.json'))
-                        #print(source_icon_path)
-                        if os.path.exists(source_data_path):
-                            with open(source_data_path) as higher_zoom_json:
-                                lower_zoom_data = lower_zoom_data + json.load(higher_zoom_json)
-                output_json_path = ''.join((zoom_directory, '/', str(som_x), '-', str(som_y), '.png'))
-                with open(output_json_path, 'w') as output_json_file:
-                    json.dump(lower_zoom_data, output_json_file)
+                output_json_path = ''.join((zoom_directory, '/', str(som_x), '-', str(som_y), '.json'))
+                if not os.path.exists(output_json_path):
+                    for y_offset in range(2):
+                        for x_offset in range(2):
+                            source_data_path = ''.join((zoomed_som_directory, '/', str(zoom + 1), '/', str(som_x * 2 + x_offset), '-', str(som_y * 2 + y_offset), '.json'))
+                            #print(source_icon_path)
+                            if os.path.exists(source_data_path):
+                                with open(source_data_path) as higher_zoom_json:
+                                    lower_zoom_data = lower_zoom_data + json.load(higher_zoom_json)
+                    
+                    with open(output_json_path, 'w') as output_json_file:
+                        json.dump(lower_zoom_data, output_json_file)
     
     ##Config file for the data layer
     config = {}
@@ -159,7 +162,7 @@ if os.path.exists(original_som_directory):
     config['layer_name'] = data_layer
     config['directory'] = '/'.join(("./som", data_layer))
     #config['page_title'] = ''
-    config_file_path = '/'.join((output_directory, 'data_layers', data_layer, "config.json"))
+    config_file_path = '/'.join((output_directory, 'datalayers', data_layer, "config.json"))
     with open(config_file_path, 'w') as config_file:
         json.dump(config, config_file)
     
