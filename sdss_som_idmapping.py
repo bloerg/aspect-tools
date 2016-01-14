@@ -46,6 +46,7 @@ import sys
 
 
 
+if __name__ == '__main__':
 
 #input parameter parsing
 parser = argparse.ArgumentParser()
