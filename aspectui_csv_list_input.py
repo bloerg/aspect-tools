@@ -59,9 +59,9 @@ for row in mapping_data_file:
     data = row
     som_x = int(data['x'])
     som_y = int(data['y'])
-    mjd = data['MJD']
-    plateid = data['plateID']
-    fiberid = data['fibID']
+    mjd = int(data['MJD'])
+    plateid = int(data['plateID'])
+    fiberid = int(data['fibID'])
     som_dimension = max([som_x, som_y, som_dimension])
     if plateid == -1:
         image_file_path = "empty.png"
@@ -71,7 +71,7 @@ for row in mapping_data_file:
         padded_plateid = padded_plateid[-4:]
         padded_fiberid = ''.join(('000', str(fiberid)))
         padded_fiberid = padded_fiberid[-3:]
-        image_file_path=''.join((str(padded_plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit.png'))
+        image_file_path=''.join((str(plateid), '/spSpec-', str(mjd), '-', padded_plateid,'-',padded_fiberid, '.fit.png'))
         link = ''.join(('http://cas.sdss.org/dr7/en/tools/explore/obj.asp?plate=', str(plateid), '&mjd=', str(mjd), '&fiber=', str(fiberid)))
         
     if image_file_path == "empty.png":
@@ -146,8 +146,8 @@ for row in mapping_data_file:
             source_icon = Image.open(image_file_path)
             temp_icon.paste(source_icon, (2, 2))
             temp_icon.save(spectrum_output_path, "PNG")
-            
-
+    else:
+        print(''.join(("Error: ", image_file_path, " does not exist")))
 
 
 
@@ -183,9 +183,15 @@ if os.path.exists(original_som_directory):
                         source_icon_path = ''.join((zoomed_som_directory, '/', str(zoom + 1), '/', str(som_x * 2 + x_offset), '-', str(som_y * 2 + y_offset), '.png'))
                         #print(source_icon_path)
                         if os.path.exists(source_icon_path):
-                            source_icon = Image.open(source_icon_path)
-                            #print(str(x_offset * icon_size[0]), str(y_offset * icon_size[1]))
-                            temp_icon.paste(source_icon, (x_offset * icon_size[0], y_offset * icon_size[1]))
+                            try:
+                                source_icon = Image.open(source_icon_path)
+                                #print(str(x_offset * icon_size[0]), str(y_offset * icon_size[1]))
+                                temp_icon.paste(source_icon, (x_offset * icon_size[0], y_offset * icon_size[1]))
+                            except IOError:
+                                #print same like next else
+                                source_icon_path = ''.join((zoomed_som_directory, '/', str(max_zoom), '/empty.png'))
+                                source_icon = Image.open(source_icon_path)
+                                temp_icon.paste(source_icon, (x_offset * icon_size[0], y_offset * icon_size[1]))
                         else:
                             #print (source_icon_path, "does not exist")
                             source_icon_path = ''.join((zoomed_som_directory, '/', str(max_zoom), '/empty.png'))
