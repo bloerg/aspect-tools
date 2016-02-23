@@ -102,6 +102,7 @@ class SOM:
         print("Writing config file for aspect-ui\n")
         config = {}
         config['max_zoom'] = self.get_som_max_zoom()
+        config['min_zoom'] = self.som_properties['min_zoom']
         if ('icon_size' in self.som_properties):
             config['tile_size'] = self.som_properties['icon_size']
         config['min_x'] = 0
@@ -205,8 +206,7 @@ def combine_tile_images(tile_data, som_properties, at_zoom):
     source_dir = som_properties['source_dir']
     dest_dir = som_properties['dest_dir'] + '/' + som_properties['name']
     temp_icon_size = (icon_size *  (x_high +1 - x_low ), icon_size * (y_high +1 - y_low))
-    #print ("temp_icon_size", x_high,y_high, x_low,y_low, icon_size *  (x_high +1 - x_low ), icon_size * (y_high +1 - y_low) )
-    temp_icon = Image.new('RGBA', temp_icon_size, None)
+    temp_icon = Image.new('RGBA', temp_icon_size, (255,255,255,0))
     # changed to True when something gets pasted to temp_icon
     write_icon_to_disk = False
     for x in xrange(x_low, x_high + 1):
@@ -216,8 +216,14 @@ def combine_tile_images(tile_data, som_properties, at_zoom):
                 source_icon_path = ''.join((source_dir, '/', tile_data[(x,y)]))
                 if os.path.exists(source_icon_path):
                     source_icon = Image.open(source_icon_path)
-                    source_icon = source_icon.resize((icon_size - 4, icon_size - 4))
-                    temp_icon.paste(source_icon, ( (x - x_low) * icon_size + 2, (y - y_low) * icon_size + 2))
+                    #~ temp_icon.paste(source_icon, ( (x - x_low) * icon_size + 2, (y - y_low) * icon_size + 2))
+                    if (at_zoom > som_properties['max_zoom'] - 4):
+                        source_icon = source_icon.resize((icon_size - 4, icon_size - 4))
+                        temp_icon.paste(source_icon, ( (x - x_low) * icon_size + 2, (y - y_low) * icon_size + 2))
+                    else:
+                        source_icon = source_icon.resize((icon_size, icon_size))
+                        temp_icon.paste(source_icon, ( (x - x_low) * icon_size, (y - y_low) * icon_size))
+                    del source_icon
                     write_icon_to_disk = True
     temp_icon = temp_icon.resize((icon_size, icon_size))
     if not os.path.exists(dest_dir):
@@ -226,6 +232,8 @@ def combine_tile_images(tile_data, som_properties, at_zoom):
         os.makedirs(dest_dir + '/' + str(at_zoom))
     if write_icon_to_disk:
         temp_icon.save(''.join((dest_dir, '/', str(at_zoom), '/' , str(tile_x), '-', str(tile_y), '.png')), "PNG")
+    del temp_icon
+
 
 # EXTRACT METADATA FROM IMAGE FILENAMES
 # extracts MJD, Plateid, Fiberid from spec-MJD-PLATEID-FIBERID.fit.png-Files
@@ -260,8 +268,18 @@ def write_metadata_to_json(tile_data, som_properties, at_zoom):
     idmapping_file_path = ''.join((dest_dir, '/', str(mjd), '-', str(plateid), '-', str(fiberid), '.json'))
     if not os.path.exists(idmapping_file_path):
         with open(idmapping_file_path, 'w') as idmapping_file:
-            json.dump({"som_x": int(som_x), "som_y":int(som_y)}, idmapping_file)  
-
+            json.dump({"som_x": int(som_x), "som_y":int(som_y)}, idmapping_file)
+    
+    # make couchdb bulk import files
+    if ('couch_db' in som_properties):
+        couchdb_file_path = ''.join((dest_dir, '/../idmapping.couchdb'))
+        with open(couchdb_file_path, 'a') as couchdb_file:
+            json.dump({"_id": "idmapping_" + str(som_x) + "-" + str(som_y) + ".json" , "data": {"mjd": int(mjd), "plateid":int(plateid), "fiberid": int(fiberid) } }, couchdb_file)
+            json.dump({"_id": "idmapping_" + str(mjd) + "-" + str(plateid) + '-' + str(fiberid) + ".json" , 
+                "data": {"som_x": int(som_x), "som_y":int(som_y)} }, couchdb_file)
+        couchdb_file_path = ''.join((dest_dir, '/../specmetadata.couchdb'))
+        with open(couchdb_file_path, 'a') as couchdb_file:
+            json.dump({"_id": "specmetadata_" + str(som_x) + "-" + str(som_y) + ".json", "data": tile_data[(som_x, som_y)] }, couchdb_file)
 
 ########################################################################
 ## example implementation
@@ -310,7 +328,7 @@ if __name__ == '__main__':
         os.makedirs(output_directory)
     
     print ("rendering icons...\n")
-    som_icons = SOM("icons", "image", combine_tile_images, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize})
+    som_icons = SOM("icons", "image", combine_tile_images, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'min_zoom': args.minzoom})
     image_links_to_som_from_html(args.htmlfile, som_icons)
     for zoom in xrange(min(args.minzoom, som_icons.get_som_max_zoom()), som_icons.get_som_max_zoom() +1):
         print("zoom level " + str(zoom) + " of " + str(som_icons.get_som_max_zoom()) + "...\n")
@@ -322,7 +340,7 @@ if __name__ == '__main__':
 
     # Metadata and idmapping data to json
     print ("writing metadata...\n")
-    som_metadata = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize})
+    som_metadata = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'couch_db': 1})
     mjd_plate_fiberid_to_som_from_html(args.htmlfile, som_metadata)
     for x in xrange(0, som_metadata.get_som_dimension()):
         for y in xrange(0, som_metadata.get_som_dimension()):
