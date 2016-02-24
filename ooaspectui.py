@@ -218,8 +218,8 @@ def combine_tile_images(tile_data, som_properties, at_zoom):
                     source_icon = Image.open(source_icon_path)
                     #~ temp_icon.paste(source_icon, ( (x - x_low) * icon_size + 2, (y - y_low) * icon_size + 2))
                     if (at_zoom > som_properties['max_zoom'] - 4):
-                        source_icon = source_icon.resize((icon_size - 4, icon_size - 4))
-                        temp_icon.paste(source_icon, ( (x - x_low) * icon_size + 2, (y - y_low) * icon_size + 2))
+                        source_icon = source_icon.resize((icon_size - 8, icon_size - 8))
+                        temp_icon.paste(source_icon, ( (x - x_low) * icon_size + 4, (y - y_low) * icon_size + 4))
                     else:
                         source_icon = source_icon.resize((icon_size, icon_size))
                         temp_icon.paste(source_icon, ( (x - x_low) * icon_size, (y - y_low) * icon_size))
