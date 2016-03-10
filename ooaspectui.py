@@ -188,7 +188,7 @@ def image_links_to_som_from_dumpfile(dump_input_file, som):
                 
 
 # MJD,PLATEID,FIBERID FROM HTML IMPORT
-# takes input file like full0_0.html and fills a given som object with image file paths
+# takes input file like full0_0.html and fills a given som object with mjd,fiberid,plateid
 def mjd_plate_fiberid_to_som_from_html(html_input_file, som):
     from bs4 import BeautifulSoup
     from urlparse import urlparse
@@ -230,7 +230,49 @@ def mjd_plate_fiberid_to_som_from_html(html_input_file, som):
             som.set_som_element(som_x, som_y, {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'sdsslink':link, 'som_x':som_x, 'som_y': som_y})
             som_x = som_x +1
         som_y = som_y + 1
-        
+
+
+# MJD,PLATEID,FIBERID FROM DUMPFILE IMPORT
+# takes input file like allSpectra.txt from aspect dump -i sofmnet and fills a given som object with mjd,fiberid,plateid
+def mjd_plate_fiberid_to_som_from_dumpfile(dump_input_file, som):
+    import os
+    import math
+    with open(dump_input_file, 'r') as f:
+        row_count = 0
+        for row in f:
+            row_count+=1
+        edge_length = math.sqrt(row_count)
+        if ( int(edge_length) != edge_length ):
+            sys.stderr.write('Error: Number of lines in dumpfile is not equal to the square of an integer. This means that there are not enough or too many lines in the dumpfile to generate a square map of spectra icons.')
+        else:
+            edge_length = int(edge_length)
+            som_x = 0
+            som_y = 0
+            f.seek(0)
+            for row in f:
+                image_filename_string = row
+                image_filename_string = str.replace(image_filename_string, '.', '-')
+                sdss_ids = image_filename_string.split('-')
+                if sdss_ids[0] == 'spec':
+                    #sdss dr10 and later
+                    plateid = int(sdss_ids[1])
+                    mjd = int(sdss_ids[2])
+                    fiberid = int(sdss_ids[3])
+                elif sdss_ids[0] == 'spSpec':
+                    #sdss dr9 and before
+                    plateid = int(sdss_ids[2])
+                    mjd = int(sdss_ids[1])
+                    fiberid = int(sdss_ids[3])
+                else:
+                    mjd = -1
+                    plateid = -1
+                    fiberid = -1
+                som.set_som_element(som_x, som_y, {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'som_x':som_x, 'som_y': som_y})
+                ## increase som coordinate counts
+                som_x+=1
+                if (som_x == edge_length):
+                    som_x = 0
+                    som_y+=1
 
 
 ########################################################################
@@ -399,8 +441,8 @@ if __name__ == '__main__':
     som_metadata = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'couch_db': 1})
     if (args.htmlfile != None):
         mjd_plate_fiberid_to_som_from_html(args.htmlfile, som_metadata)
-    #~ if (args.dumpfile != None):
-        #~ mjd_plate_fiberid_to_som_from_dumpfile(args.hdumpfile, som_metadata)
+    if (args.dumpfile != None):
+        mjd_plate_fiberid_to_som_from_dumpfile(args.dumpfile, som_metadata)
     for x in xrange(0, som_metadata.get_som_dimension()):
         for y in xrange(0, som_metadata.get_som_dimension()):
             som_metadata.transform_tile(som_metadata.get_som_max_zoom(),x,y)
