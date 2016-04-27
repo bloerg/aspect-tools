@@ -119,6 +119,19 @@ class SOM:
 ########################################################################
 ## INPUT FILTERS
 
+# IMAGE FILE PATHS FROM CSV IMPORT
+# takes input file with three columns: data, x, y
+# expects space as delimiter
+def image_links_to_som_from_csv(csv_input_file, som):
+    import os
+    import csv
+    with open(csv_input_file, 'rb') as f:
+        csv_content = csv.reader(f, delimiter=' ')
+    for row in csv_content:
+        if ('x' in row and 'y' in row and 'data' in row):
+            som.set_som_element(int(x),int(y),str(data))
+
+
 # IMAGE FILE PATHS FROM HTML IMPORT
 # takes input file like full0_0.html and fills a given som object with image file paths
 def image_links_to_som_from_html(html_input_file, som):
