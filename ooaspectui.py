@@ -129,7 +129,7 @@ def image_links_to_som_from_csv(csv_input_file, som):
         csv_content = csv.reader(f, delimiter=' ')
         for row in csv_content:
             if ('x' in row and 'y' in row and 'data' in row):
-                som.set_som_element(int(row.x),int(row.y),str(row.data))
+                som.set_som_element(int(row['x']),int(row['y']),str(row['data']))
 
 
 # IMAGE FILE PATHS FROM HTML IMPORT
@@ -211,7 +211,7 @@ def mjd_plate_fiberid_to_som_from_csv(csv_input_file, som):
         for row in csv_content:
             if ('x' in row and 'y' in row and 'data' in row):
                 #extract mjd,plateid,fiberid from fits.png-Filename
-                image_filename = os.path.basename(row.data)
+                image_filename = os.path.basename(row['data'])
                 image_filename = str.replace(image_filename, '.', '-')
                 sdss_ids = image_filename.split('-')
                 if sdss_ids[0] == 'spec':
@@ -228,7 +228,7 @@ def mjd_plate_fiberid_to_som_from_csv(csv_input_file, som):
                     mjd = -1
                     plateid = -1
                     fiberid = -1
-                som.set_som_element(som_x, som_y, {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'sdsslink':link, 'som_x':som_x, 'som_y': som_y})
+                som.set_som_element(row['x'], row['y'], {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'sdsslink':link, 'som_x':row['x'], 'som_y': row['y']})
                 som.set_som_element(int(row.x),int(row.y),str(row.data))
 
 # MJD,PLATEID,FIBERID FROM HTML IMPORT
