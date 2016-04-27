@@ -129,7 +129,25 @@ def image_links_to_som_from_csv(csv_input_file, som):
         csv_content = csv.DictReader(f, delimiter=' ')
         for row in csv_content:
             if ('x' in row and 'y' in row and 'data' in row):
-                som.set_som_element(int(row['x']),int(row['y']),str(row['data']))
+                image_filename_string = row['data']
+                image_filename_string = str.replace(image_filename_string, '.', '-')
+                sdss_ids = image_filename_string.split('-')
+                if sdss_ids[0] == 'spec':
+                    #sdss dr10 and later
+                    plateid = int(sdss_ids[1])
+                    mjd = int(sdss_ids[2])
+                    fiberid = int(sdss_ids[3])
+                elif sdss_ids[0] == 'spSpec':
+                    #sdss dr9 and before
+                    plateid = int(sdss_ids[2])
+                    mjd = int(sdss_ids[1])
+                    fiberid = int(sdss_ids[3])
+                else:
+                    mjd = -1
+                    plateid = -1
+                    fiberid = -1
+                image_file_path = str(plateid) + '/' + '-'.join( sdss_ids[0:4] ) + '.fits.png'
+                som.set_som_element(int(row['x']),int(row['y']),image_file_path)
 
 
 # IMAGE FILE PATHS FROM HTML IMPORT
