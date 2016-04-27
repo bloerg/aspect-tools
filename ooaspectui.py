@@ -431,6 +431,8 @@ if __name__ == '__main__':
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
     
+    som_icons.write_aspect_ui_config_to_disk()
+    
     print ("rendering icons...\n")
     som_icons = SOM("icons", "image", combine_tile_images, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'min_zoom': args.minzoom})
     
@@ -446,7 +448,7 @@ if __name__ == '__main__':
         for y in xrange(0, som_icons.get_som_dimension_at_zoom(zoom) ):
             for x in xrange(0, som_icons.get_som_dimension_at_zoom(zoom) ):
                 som_icons.transform_tile(zoom,x,y)
-    som_icons.write_aspect_ui_config_to_disk()
+
 
 
     # Metadata and idmapping data to json
