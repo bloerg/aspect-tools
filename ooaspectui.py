@@ -127,9 +127,9 @@ def image_links_to_som_from_csv(csv_input_file, som):
     import csv
     with open(csv_input_file, 'rb') as f:
         csv_content = csv.reader(f, delimiter=' ')
-    for row in csv_content:
-        if ('x' in row and 'y' in row and 'data' in row):
-            som.set_som_element(int(row.x),int(row.y),str(row.data))
+        for row in csv_content:
+            if ('x' in row and 'y' in row and 'data' in row):
+                som.set_som_element(int(row.x),int(row.y),str(row.data))
 
 
 # IMAGE FILE PATHS FROM HTML IMPORT
@@ -208,28 +208,28 @@ def mjd_plate_fiberid_to_som_from_csv(csv_input_file, som):
     import csv
     with open(csv_input_file, 'rb') as f:
         csv_content = csv.reader(f, delimiter=' ')
-    for row in csv_content:
-        if ('x' in row and 'y' in row and 'data' in row):
-            #extract mjd,plateid,fiberid from fits.png-Filename
-            image_filename = os.path.basename(row.data)
-            image_filename = str.replace(image_filename, '.', '-')
-            sdss_ids = image_filename.split('-')
-            if sdss_ids[0] == 'spec':
-                #sdss dr10 and later
-                plateid = int(sdss_ids[1])
-                mjd = int(sdss_ids[2])
-                fiberid = int(sdss_ids[3])
-            elif sdss_ids[0] == 'spSpec':
-                #sdss dr9 and before
-                plateid = int(sdss_ids[2])
-                mjd = int(sdss_ids[1])
-                fiberid = int(sdss_ids[3])
-            else:
-                mjd = -1
-                plateid = -1
-                fiberid = -1
-            som.set_som_element(som_x, som_y, {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'sdsslink':link, 'som_x':som_x, 'som_y': som_y})
-            som.set_som_element(int(row.x),int(row.y),str(row.data))
+        for row in csv_content:
+            if ('x' in row and 'y' in row and 'data' in row):
+                #extract mjd,plateid,fiberid from fits.png-Filename
+                image_filename = os.path.basename(row.data)
+                image_filename = str.replace(image_filename, '.', '-')
+                sdss_ids = image_filename.split('-')
+                if sdss_ids[0] == 'spec':
+                    #sdss dr10 and later
+                    plateid = int(sdss_ids[1])
+                    mjd = int(sdss_ids[2])
+                    fiberid = int(sdss_ids[3])
+                elif sdss_ids[0] == 'spSpec':
+                    #sdss dr9 and before
+                    plateid = int(sdss_ids[2])
+                    mjd = int(sdss_ids[1])
+                    fiberid = int(sdss_ids[3])
+                else:
+                    mjd = -1
+                    plateid = -1
+                    fiberid = -1
+                som.set_som_element(som_x, som_y, {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'sdsslink':link, 'som_x':som_x, 'som_y': som_y})
+                som.set_som_element(int(row.x),int(row.y),str(row.data))
 
 # MJD,PLATEID,FIBERID FROM HTML IMPORT
 # takes input file like full0_0.html and fills a given som object with mjd,fiberid,plateid
