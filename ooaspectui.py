@@ -126,7 +126,7 @@ def image_links_to_som_from_csv(csv_input_file, som):
     import os
     import csv
     with open(csv_input_file, 'rb') as f:
-        csv_content = csv.reader(f, delimiter=' ')
+        csv_content = csv.DictReader(f, delimiter=' ')
         for row in csv_content:
             if ('x' in row and 'y' in row and 'data' in row):
                 som.set_som_element(int(row['x']),int(row['y']),str(row['data']))
@@ -207,7 +207,7 @@ def mjd_plate_fiberid_to_som_from_csv(csv_input_file, som):
     import os
     import csv
     with open(csv_input_file, 'rb') as f:
-        csv_content = csv.reader(f, delimiter=' ')
+        csv_content = csv.DictReader(f, delimiter=' ')
         for row in csv_content:
             if ('x' in row and 'y' in row and 'data' in row):
                 #extract mjd,plateid,fiberid from fits.png-Filename
