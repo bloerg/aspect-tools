@@ -496,15 +496,6 @@ if __name__ == '__main__':
 
     som_icons.write_aspect_ui_config_to_disk()
 
-    print ("rendering icons...\n")
-    for zoom in xrange(min(args.minzoom, som_icons.get_som_max_zoom()), som_icons.get_som_max_zoom() +1):
-        print("zoom level " + str(zoom) + " of " + str(som_icons.get_som_max_zoom()) + "...\n")
-        for y in xrange(0, som_icons.get_som_dimension_at_zoom(zoom) ):
-            for x in xrange(0, som_icons.get_som_dimension_at_zoom(zoom) ):
-                som_icons.transform_tile(zoom,x,y)
-
-
-
     # Metadata and idmapping data to json
     print ("writing metadata...\n")
     som_metadata = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'couch_db': 1})
@@ -517,5 +508,12 @@ if __name__ == '__main__':
     for x in xrange(0, som_metadata.get_som_dimension()):
         for y in xrange(0, som_metadata.get_som_dimension()):
             som_metadata.transform_tile(som_metadata.get_som_max_zoom(),x,y)
+
+    print ("rendering icons...\n")
+    for zoom in xrange(min(args.minzoom, som_icons.get_som_max_zoom()), som_icons.get_som_max_zoom() +1):
+        print("zoom level " + str(zoom) + " of " + str(som_icons.get_som_max_zoom()) + "...\n")
+        for y in xrange(0, som_icons.get_som_dimension_at_zoom(zoom) ):
+            for x in xrange(0, som_icons.get_som_dimension_at_zoom(zoom) ):
+                som_icons.transform_tile(zoom,x,y)
             
     print ("Done...\n")
