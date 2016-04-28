@@ -363,7 +363,6 @@ def combine_tile_images(tile_data, som_properties, at_zoom):
     for x in xrange(x_low, x_high + 1):
         for y in xrange(y_low, y_high + 1):
             if ( (x,y) in tile_data):
-                #print (x,y)
                 source_icon_path = ''.join((source_dir, '/', tile_data[(x,y)]))
                 if os.path.exists(source_icon_path):
                     source_icon = Image.open(source_icon_path)
@@ -500,7 +499,7 @@ if __name__ == '__main__':
     print ("writing metadata...\n")
     som_metadata = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'couch_db': 1})
     if (args.csvfile != None):
-        mjd_plate_fiberid_to_som_from_csv(args.csvfile, som_icons)
+        mjd_plate_fiberid_to_som_from_csv(args.csvfile, som_metadata)
     if (args.htmlfile != None):
         mjd_plate_fiberid_to_som_from_html(args.htmlfile, som_metadata)
     if (args.dumpfile != None):
