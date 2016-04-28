@@ -246,7 +246,7 @@ def mjd_plate_fiberid_to_som_from_csv(csv_input_file, som):
                     mjd = -1
                     plateid = -1
                     fiberid = -1
-                som.set_som_element(row['x'], row['y'], {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'sdsslink':link, 'som_x':row['x'], 'som_y': row['y']})
+                som.set_som_element(row['x'], row['y'], {'mjd': mjd, 'plateid': plateid, 'fiberid':fiberid, 'som_x':row['x'], 'som_y': row['y']})
                 som.set_som_element(int(row.x),int(row.y),str(row.data))
 
 # MJD,PLATEID,FIBERID FROM HTML IMPORT
