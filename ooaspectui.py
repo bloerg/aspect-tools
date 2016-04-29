@@ -112,6 +112,8 @@ class SOM:
         config['base_directory'] = "./som"
         #config['page_title'] = ''
         config['has_no_background'] = True  #means that there is no information regarding redshift and such, which could be used for background coloring
+        if('has_csv_metadata_file' in self.som_properties):
+            config['has_csv_metadata_file'] = self.som_properties['has_csv_metadata_file']
         config_file_path = '/'.join((self.som_properties['dest_dir'], "../config.json"))
         with open(config_file_path, 'w') as config_file:
             json.dump(config, config_file)
@@ -385,7 +387,7 @@ def combine_tile_images(tile_data, som_properties, at_zoom):
     del temp_icon
 
 
-# EXTRACT METADATA FROM IMAGE FILENAMES
+# EXTRACT METADATA FROM IMAGE FILENAMES AND WRITE TO JSON
 # extracts MJD, Plateid, Fiberid from spec-MJD-PLATEID-FIBERID.fit.png-Files
 # requires in som_properties: source_dir, dest_dir
 def write_metadata_to_json(tile_data, som_properties, at_zoom):
@@ -430,6 +432,35 @@ def write_metadata_to_json(tile_data, som_properties, at_zoom):
         couchdb_file_path = ''.join((dest_dir, '/../specmetadata.couchdb'))
         with open(couchdb_file_path, 'a') as couchdb_file:
             json.dump({"_id": "specmetadata_" + str(som_x) + "-" + str(som_y) + ".json", "data": tile_data[(som_x, som_y)] }, couchdb_file)
+
+
+# EXTRACT METADATA FROM IMAGE FILENAMES AND WRITE TO CSV
+# extracts MJD, Plateid, Fiberid from spec-MJD-PLATEID-FIBERID.fit.png-Files
+# requires in som_properties: source_dir, dest_dir
+def write_metadata_to_csv(tile_data, som_properties, at_zoom):
+    import json
+    import os
+    source_dir = som_properties['source_dir']
+    dest_dir = som_properties['dest_dir'] + '/' 
+    mjd=tile_data[(tile_data['tile_x'], tile_data['tile_y'])]['mjd']
+    plate=tile_data[(tile_data['tile_x'], tile_data['tile_y'])]['plateid']
+    fiberid=tile_data[(tile_data['tile_x'], tile_data['tile_y'])]['fiberid']
+    som_x = tile_data['tile_x']
+    som_y = tile_data['tile_y']
+
+
+    # write idmapping som_x, som_y -> mjd, plateid, fiberid and vice versa
+    file_path = ''.join((dest_dir, '/', 'idmapping.csv'))
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    if not os.path.exists(file_path):
+        with open(file_path, 'wb') as csv_data_file:
+            # write csv file header
+            csv_data_file.write("som_x,som_y,mjd,plate,fiberid\n")
+            csv_data_file.write(','.join(map(str, (som_x,som_y,mjd,plate,fiberid) ))  + "\n")
+    else:
+        with open(file_path, 'ab') as csv_data_file:
+            csv_data_file.write(','.join(map(str, (som_x,som_y,mjd,plate,fiberid) )) + "\n")
 
 ########################################################################
 ## example implementation
@@ -481,7 +512,7 @@ if __name__ == '__main__':
         os.makedirs(output_directory)
     
     
-    som_icons = SOM("icons", "image", combine_tile_images, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'min_zoom': args.minzoom})
+    som_icons = SOM("icons", "image", combine_tile_images, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'min_zoom': args.minzoom, 'has_csv_metadata_file': True})
     
     ## csv file given as map input
     if (args.csvfile != None):
@@ -497,16 +528,29 @@ if __name__ == '__main__':
 
     # Metadata and idmapping data to json
     print ("writing metadata...\n")
-    som_metadata = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'couch_db': 1})
+    som_metadata_json = SOM("specmetadata", "json", write_metadata_to_json, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize, 'couch_db': 1})
     if (args.csvfile != None):
-        mjd_plate_fiberid_to_som_from_csv(args.csvfile, som_metadata)
+        mjd_plate_fiberid_to_som_from_csv(args.csvfile, som_metadata_json)
     if (args.htmlfile != None):
-        mjd_plate_fiberid_to_som_from_html(args.htmlfile, som_metadata)
+        mjd_plate_fiberid_to_som_from_html(args.htmlfile, som_metadata_json)
     if (args.dumpfile != None):
-        mjd_plate_fiberid_to_som_from_dumpfile(args.dumpfile, som_metadata)
-    for x in xrange(0, som_metadata.get_som_dimension()):
-        for y in xrange(0, som_metadata.get_som_dimension()):
-            som_metadata.transform_tile(som_metadata.get_som_max_zoom(),x,y)
+        mjd_plate_fiberid_to_som_from_dumpfile(args.dumpfile, som_metadata_json)
+    for x in xrange(0, som_metadata_json.get_som_dimension()):
+        for y in xrange(0, som_metadata_json.get_som_dimension()):
+            som_metadata_json.transform_tile(som_metadata_json.get_som_max_zoom(),x,y)
+
+    # Metadata and idmapping data to csv
+    print ("writing metadata...\n")
+    som_metadata_csv = SOM("specmetadata", "csv", write_metadata_to_csv, {'source_dir': args.inputdir, 'dest_dir': output_directory, 'icon_size': args.iconsize})
+    if (args.csvfile != None):
+        mjd_plate_fiberid_to_som_from_csv(args.csvfile, som_metadata_csv)
+    if (args.htmlfile != None):
+        mjd_plate_fiberid_to_som_from_html(args.htmlfile, som_metadata_csv)
+    if (args.dumpfile != None):
+        mjd_plate_fiberid_to_som_from_dumpfile(args.dumpfile, som_metadata_csv)
+    for x in xrange(0, som_metadata_csv.get_som_dimension()):
+        for y in xrange(0, som_metadata_csv.get_som_dimension()):
+            som_metadata_csv.transform_tile(som_metadata_csv.get_som_max_zoom(),x,y)
 
     print ("rendering icons...\n")
     for zoom in xrange(min(args.minzoom, som_icons.get_som_max_zoom()), som_icons.get_som_max_zoom() +1):
